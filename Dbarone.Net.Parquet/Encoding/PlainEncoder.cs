@@ -1,5 +1,6 @@
-using System.Text.Unicode;
-using Dbarone.Net.Database;
+namespace Dbarone.Net.Parquet.Encoding;
+
+using Dbarone.Net.Buffers;
 
 /// <ksummary>
 /// Implements PLAIN encoding in Parquet.
@@ -25,14 +26,14 @@ using Dbarone.Net.Database;
 /// </summary>
 public class PlainEncoder
 {
-  public IEnumerable<object> Decode(IBuffer buffer, long numValues, Dbarone.Net.Database.Parquet.Type type)
+  public IEnumerable<object> Decode(IBuffer buffer, long numValues, Thrift.Type type)
   {
     while (numValues > 0)
     {
       numValues = numValues - 1;
       switch (type)
       {
-        case Dbarone.Net.Database.Parquet.Type.INT32:
+        case Thrift.Type.INT32:
           // INT32 always stored in little-endian
           var bytesInt32 = buffer.ReadBytes(4);
           if (!BitConverter.IsLittleEndian)
@@ -42,7 +43,7 @@ public class PlainEncoder
           }
           yield return BitConverter.ToInt32(bytesInt32, 0);
           break;
-        case Dbarone.Net.Database.Parquet.Type.INT64:
+        case Thrift.Type.INT64:
           // INT64 always stored in little-endian
           var bytesInt64 = buffer.ReadBytes(8);
           if (!BitConverter.IsLittleEndian)
@@ -52,7 +53,7 @@ public class PlainEncoder
           }
           yield return BitConverter.ToInt64(bytesInt64, 0);
           break;
-        case Dbarone.Net.Database.Parquet.Type.BYTE_ARRAY:
+        case Thrift.Type.BYTE_ARRAY:
           // read length (4 bytes little-endian)
           var bytes = buffer.ReadBytes(4);
           if (!BitConverter.IsLittleEndian)

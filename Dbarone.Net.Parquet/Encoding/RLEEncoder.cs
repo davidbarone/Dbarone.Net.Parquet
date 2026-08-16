@@ -1,4 +1,6 @@
-using Dbarone.Net.Database;
+namespace Dbarone.Net.Parquet.Encoding;
+
+using Dbarone.Net.Buffers;
 
 /// <ksummary>
 /// Implements RLE/Bit-Packing hybrid encoding in Parquet
@@ -21,7 +23,7 @@ public class RLEEncoder
       // rle-header := varint - encode((rle - run - len) << 1)
 
       // Get header, and shift 1 by one:
-      var runLength = buffer.ReadVarInt(Endianness.LITTLE_ENDIAN).Value;
+      var runLength = buffer.ReadULEB128().Value;
 
       bool isBitPackedRun = (runLength & 1) == 1;
 

@@ -2,6 +2,9 @@ namespace Dbarone.Net.Parquet;
 
 using Dbarone.Net.Parquet.Thrift;
 using Dbarone.Net.Buffers;
+using Dbarone.Net.Buffers.Document;
+using Dbarone.Net.Parquet.Encoding;
+using System.Text;
 
 /// <summary>
 /// Parquet is an open source, column-oriented data file format designed for
@@ -43,7 +46,7 @@ public class ParquetSerializer
 
     // Magic header
     buffer.Position = 0;
-    var magicHeader = buffer.ReadString(4);
+    var magicHeader = System.Text.Encoding.UTF32.GetString(buffer.ReadBytes(4));
     if (!magicHeader.Equals("PAR1"))
     {
       throw new Exception("Invalid magic header");
@@ -51,7 +54,7 @@ public class ParquetSerializer
 
     // Magic footer
     buffer.Position = buffer.Length - 4;
-    var magicFooter = buffer.ReadString(4);
+    var magicFooter = System.Text.Encoding.UTF32.GetString(buffer.ReadBytes(4));
     if (!magicFooter.Equals("PAR1"))
     {
       throw new Exception("Invalid magic footer");
@@ -179,7 +182,7 @@ public class ParquetSerializer
     // get the encoding
     var enc = header.Encoding;
 
-    if (enc == Encoding.PLAIN_DICTIONARY)
+    if (enc == Dbarone.Net.Parquet.Thrift.Encoding.PLAIN_DICTIONARY)
     {
       var dict = new PlainEncoder().Decode(buffer, header.NumValues, type).ToList();
       return dict;
@@ -196,24 +199,24 @@ public class ParquetSerializer
     // Get the encoding in the page:
     switch (dataPageHeader.Encoding)
     {
-      case Encoding.PLAIN:
+      case Thrift.Encoding.PLAIN:
         PlainEncoder encoder2 = new PlainEncoder();
         foreach (var item in encoder2.Decode(buffer, dataPageHeader.NumValues, type))
         {
           yield return item;
         }
         break;
-      case Encoding.DELTA_BINARY_PACKED:
+      case Thrift.Encoding.DELTA_BINARY_PACKED:
         // for int32 and int64
         DeltaBinaryPackedEncoder encoder = new DeltaBinaryPackedEncoder();
         var result = encoder.Decode(buffer);
         foreach (var item in result)
         {
-          if (type == Dbarone.Net.Database.Parquet.Type.INT32)
+          if (type == Thrift.Type.INT32)
           {
             yield return (int)item;
           }
-          else if (type == Dbarone.Net.Database.Parquet.Type.INT64)
+          else if (type == Thrift.Type.INT64)
           {
             yield return item;
           }
