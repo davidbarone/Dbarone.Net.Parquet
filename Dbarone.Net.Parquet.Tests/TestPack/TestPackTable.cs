@@ -1,17 +1,4 @@
-using System.Collections.Generic;
-using System.Data;
-using System.IO;
-using System.Threading.Tasks;
-using Parquet;
-using Parquet.Schema;
-using Xunit;
-using System;
-using Dbarone.Net.Database;
-using Dbarone.Net.Csv;
-using System.Linq;
-using Dbarone.Net.Database.Tests;
-using Dbarone.Net.Extensions;
-
+namespace Dbarone.Net.Parquet.Tests;
 
 public class TestPackTable : Dictionary<string, TestPackColumn>
 {
