@@ -68,14 +68,14 @@ public class TestPack : Dictionary<string, TestPackTable>
   {
     string[] testPack = new string[]
     {
-      "Compression:None[foo:Int32:INT_12345:PLAIN]",
-      "Compression:None[foo:Int32:INT_12345:DELTA_BINARY_PACKED]",
-      "Compression:None[foo:Int64:INT_12345:PLAIN]",
-      "Compression:None[foo:Int64:INT_12345:DELTA_BINARY_PACKED]",
-      "Compression:None[foo:Int64:LONG_MAX:PLAIN]",
-      "Compression:None[foo:Int64:LONG_MIN:PLAIN]",
-      "Compression:None[foo:Int64:INT_111222233333:RLE_DICTIONARY]",
-      "Compression:None[foo:Int64:LONG_MAX_REPEAT_1000000:RLE_DICTIONARY]",
+      "Compression:None[foo:INT32:INT_12345:PLAIN]",
+      "Compression:None[foo:INT32:INT_12345:DELTA_BINARY_PACKED]",
+      "Compression:None[foo:INT64:INT_12345:PLAIN]",
+      "Compression:None[foo:INT64:INT_12345:DELTA_BINARY_PACKED]",
+      "Compression:None[foo:INT64:LONG_MAX:PLAIN]",
+      "Compression:None[foo:INT64:LONG_MIN:PLAIN]",
+      "Compression:None[foo:INT64:INT_111222233333:RLE_DICTIONARY]",
+      "Compression:None[foo:INT64:LONG_MAX_REPEAT_1000000:RLE_DICTIONARY]",
       "Compression:None[foo:STRING:STR_ABCDEFG:PLAIN]",
       "Compression:None[foo:STRING:STR_ABCABCABC:PLAIN]",
       "Compression:None[foo:STRING:STR_ABCDEFG:RLE_DICTIONARY]",

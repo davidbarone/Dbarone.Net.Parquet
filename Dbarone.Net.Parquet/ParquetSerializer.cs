@@ -46,7 +46,7 @@ public class ParquetSerializer
 
     // Magic header
     buffer.Position = 0;
-    var magicHeader = System.Text.Encoding.UTF32.GetString(buffer.ReadBytes(4));
+    var magicHeader = System.Text.Encoding.UTF8.GetString(buffer.ReadBytes(4));
     if (!magicHeader.Equals("PAR1"))
     {
       throw new Exception("Invalid magic header");
@@ -54,7 +54,7 @@ public class ParquetSerializer
 
     // Magic footer
     buffer.Position = buffer.Length - 4;
-    var magicFooter = System.Text.Encoding.UTF32.GetString(buffer.ReadBytes(4));
+    var magicFooter = System.Text.Encoding.UTF8.GetString(buffer.ReadBytes(4));
     if (!magicFooter.Equals("PAR1"))
     {
       throw new Exception("Invalid magic footer");
