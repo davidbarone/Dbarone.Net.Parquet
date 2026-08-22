@@ -5,9 +5,59 @@ using System.Data;
 using System;
 using System.Linq;
 using Dbarone.Net.Extensions;
+using System.Text.RegularExpressions;
 
 public class TestPack : Dictionary<string, TestPackTable>
 {
+
+
+  /// <summary>
+  /// Generates a test pack table from a spec string.
+  /// 
+  /// The format of the spec string is as follows:
+  /// Compression:{compression},...[{column1},{column2},...]
+  /// 
+  /// The format of a column specification is:
+  /// {column name}:{column type}:{value generator}:{encoding}
+  /// 
+  /// Column Type:
+  /// - Must be 
+  /// </summary>
+  /// <param name="spec"></param>
+  /// <returns></returns>
+  private TestPackTable SpecToTable(string spec)
+  {
+    TestPackTable table = new TestPackTable();
+
+    string pattern = @"^(?<props>.*)\[(?<columns>.*?)\]";
+    Match match = Regex.Match(spec, pattern);
+    if (!match.Success)
+    {
+      throw new Exception("Not a valid test spec string.");
+    }
+    var props = match.Groups["props"].Value;
+    var columns = match.Groups["columns"].Value;
+
+    // Parse the props
+    Dictionary<string, string> propsDict = new Dictionary<string, string>();
+    var propsArray = props.Split(",");
+    foreach (var propsItem in propsArray)
+    {
+      var keyValue = propsItem.Split(":");
+      propsDict.Add(keyValue[0], keyValue[1]);
+    }
+    // Parse the columns and add to table
+    var columnsArray = columns.Split(",");
+    foreach (var columnItem in columnsArray)
+    {
+      var columnSpec = columnItem.Split(":");
+      var column = new TestPackColumn(columnSpec[1], columnSpec[2], columnSpec[3]);
+      table[columnSpec[0]] = column;
+    }
+
+    return table;
+  }
+
   /// <summary>
   /// Generates the test pack. Note that this method can be modified to return
   /// only a single dataset by entering the name of the dataset in the parameter.
@@ -16,48 +66,27 @@ public class TestPack : Dictionary<string, TestPackTable>
   /// <returns>Returns a test pack of datasets.</returns>
   public TestPack Generate(string? selected = null)
   {
-    // Get test pack
-    var results = new TestPack
+    string[] testPack = new string[]
     {
-      {
-        "Delta Binary Packed - Int32 1-5",
-        new TestPackTable {{"foo", new TestPackColumn(typeof(Int32), () => Enumerable.Range(1, 5).Select(n=>(object)n))}}
-      },
-      {
-        "Delta Binary Packed - Int64 1-5",
-        new TestPackTable {{"foo", new TestPackColumn(typeof(Int64), () => Enumerable.Range(1, 5).Select(n=>(object)n))} }
-      },
-      {
-        "Delta Binary Packed - Int64 Long.Max",
-        new TestPackTable {{"foo", new TestPackColumn(typeof(Int64), () => new object[] { long.MaxValue })} }
-      },
-      {
-        "Delta Binary Packed - Int64 Long.Min",
-        new TestPackTable {{"foo", new TestPackColumn(typeof(Int64), () => new object[] { long.MinValue })} }
-      },
-      {
-        "Dictionary/RLE - Simple Int32",
-        new TestPackTable {{"foo", new TestPackColumn(typeof(Int32), () => new object[] { 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3 }) } }
-      },
-      {
-        "Dictionary/RLE - Long.MaxValue * 1,000,000",
-        new TestPackTable {{"foo", new TestPackColumn(typeof(Int64), () => Enumerable.Repeat(long.MaxValue,1000000).Select(n => (object)n)) } }
-      },
-      {
-        "Plain Encoding - String #1 No Definition/Repetition Levels",
-        new TestPackTable {{"foo", new TestPackColumn(typeof(string), () => new object[] { "A", "B", "C", "D", "E", "F", "G" }, false) } }
-      },
-      {
-        "Plain Encoding - String #2 No Definition/Repetition Levels",
-        new TestPackTable {{"foo", new TestPackColumn(typeof(string), () => new object[] { "A", "B", "C", "A", "B", "C", "A", "B", "C" }, false) } }
-      }
+      "Compression:None[foo:Int32:INT_12345:PLAIN]",
+      "Compression:None[foo:Int32:INT_12345:DELTA_BINARY_PACKED]",
+      "Compression:None[foo:Int64:INT_12345:PLAIN]",
+      "Compression:None[foo:Int64:INT_12345:DELTA_BINARY_PACKED]",
+      "Compression:None[foo:Int64:LONG_MAX:PLAIN]",
+      "Compression:None[foo:Int64:LONG_MIN:PLAIN]",
+      "Compression:None[foo:Int64:INT_111222233333:RLE_DICTIONARY]",
+      "Compression:None[foo:Int64:LONG_MAX_REPEAT_1000000:RLE_DICTIONARY]",
+      "Compression:None[foo:STRING:STR_ABCDEFG:PLAIN]",
+      "Compression:None[foo:STRING:STR_ABCABCABC:PLAIN]",
+      "Compression:None[foo:STRING:STR_ABCDEFG:RLE_DICTIONARY]",
+      "Compression:None[foo:STRING:STR_ABCABCABC:RLE_DICTIONARY]"
     };
 
-    var filtered = results.Where(kvp => (selected is null || selected == "") || kvp.Key.Equals(selected)).ToDictionary();
+    var filtered = testPack.Where(t => (selected is null || selected == "") || t.Equals(selected)).ToArray();
 
     TestPack tp = new TestPack();
     foreach (var item in filtered)
-      tp.Add(item.Key, item.Value);
+      tp.Add(item, SpecToTable(item));
 
     return tp;
   }

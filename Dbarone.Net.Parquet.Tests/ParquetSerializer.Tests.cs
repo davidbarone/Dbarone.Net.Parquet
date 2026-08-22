@@ -42,7 +42,7 @@ public class ParquetSerializerTests
   /// <param name="data"></param>
   /// <returns></returns>
   [Theory]
-  [MemberData(nameof(GetData), "Plain Encoding - String #2 No Definition/Repetition Levels")]
+  [MemberData(nameof(GetData), "")]
   public async Task ParquetReadTest(string name, TestPackTable table)
   {
     Assert.NotNull(name);
