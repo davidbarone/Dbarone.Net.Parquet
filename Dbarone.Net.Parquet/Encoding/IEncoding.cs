@@ -17,4 +17,5 @@ public interface IEncoding
   public byte[][] ReadByteArray(int numValues);
   public byte[][] ReadFixedLengthByteArray(int numValues, int length);
   public object[] Read(Dbarone.Net.Parquet.Thrift.Type type, int length);
+  public object[] ReadLogical(Dbarone.Net.Parquet.Thrift.LogicalType logicalType, int length);
 }

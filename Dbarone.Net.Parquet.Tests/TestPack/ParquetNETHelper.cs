@@ -77,7 +77,7 @@ public class ParquetNETHelper
                     (ParquetNetSchema.DataField)field,
                     rows.Select(r => Convert.ToInt64(r[field.Name])).ToArray());
                 break;
-              case Type _ when dataField.ClrType == typeof(string):
+              case Type _ when dataField.ClrType == typeof(ReadOnlyMemory<char>): // Parquet >6.1 strings
                 await groupWriter
                   .WriteAsync(
                     (ParquetNetSchema.DataField)field,
@@ -133,7 +133,7 @@ public class ParquetNETHelper
               await groupReader.ReadAsync<long>(field, longValues);
               dataAsList.Add(longValues.Cast<object>().ToList());
               break;
-            case Type stringType when stringType == typeof(string):
+            case Type stringType when stringType == typeof(ReadOnlyMemory<char>): // Parquet >6.1 string
               string[] stringValues = new string[groupReader.RowCount];
               await groupReader.ReadAsync(field, stringValues);
               dataAsList.Add(stringValues.Cast<object>().ToList());

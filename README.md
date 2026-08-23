@@ -69,11 +69,13 @@ Both areas of metadata are encoded and serialised using a protocol called: Thrif
 
 ## Types
 There are in fact 2 sets of types required when talking about Parquet files:
-- (Physical) types
+- Physical / primitive types
 - Logical types
 
-### (Physical types)
-The physical types represent the different formats actually written to disk. There are only a handful of these types, shown in the table below:
+A good page to read up on this is here: https://deepwiki.com/apache/parquet-format/3.1-physical-and-logical-types
+
+### Physical types
+The physical types describe how data is physically written to disk. There are only a handful of these types, shown in the table below:
 ```
   - BOOLEAN: 1 bit boolean
   - INT32: 32 bit signed ints
@@ -89,7 +91,7 @@ This list is intentially small to allow Parquet readers / writers to be simple. 
 ### Logical Types
 A wider variety of logical types exist. The list of supported types is found in the `LogicalType` enum. Note that this replaces the deprecated `ConvertedType` enum. The following logical types, and their mappings to (physical) type, and CLR type is shown below:
 
-| Logical Type      | Description                                                                        | Type                 | .NET CLR Type   |
+| Logical Type      | Description                                                                        | Physical Type        | .NET CLR Type   |
 | ----------------- | ---------------------------------------------------------------------------------- | -------------------- | --------------- |
 | STRING            | Interpreted as UTF-8 encoded character string                                      | BYTE_ARRAY           | System.String   |
 | ENUM              | TBD                                                                                |                      |                 |

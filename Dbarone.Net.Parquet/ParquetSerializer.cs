@@ -83,6 +83,7 @@ public class ParquetSerializer
       var numRows = rowGroup.NumRows;
       for (int i = 1; i < schema.Count; i++)  // ignore the 'root' schema element.
       {
+        var schemaElement = schema[i];    // schema element
         var columnName = schema[i].Name;  // column name
         var chunk = rowGroup.Columns[i - 1];
 
@@ -114,7 +115,7 @@ public class ParquetSerializer
         else if (ph.PageType == PageType.DATA_PAGE)
         {
           List<TableRow> rows = new List<TableRow>();
-          var raw = GetDataPage(chunk.Metadata.Type, ph.DataPageHeader, buffer);
+          var raw = GetDataPage(buffer, ph, schemaElement);
           foreach (var item in raw)
           {
             TableRow tr = new TableRow(columnName, item);
@@ -195,20 +196,31 @@ public class ParquetSerializer
     }
   }
 
-  private object[] GetDataPage(Dbarone.Net.Parquet.Thrift.Type type, DataPageHeader dataPageHeader, IBuffer buffer)
+  private object[] GetDataPage(IBuffer buffer, PageHeader pageHeader, SchemaElement element)
   {
     Dbarone.Net.Parquet.Encoding.Encoding encoding = default!;
+
+    var dataPageHeader = pageHeader.DataPageHeader;
+    if (dataPageHeader is null)
+    {
+      throw new Exception("dataPageHeader is null");
+    }
+
+    if (element.LogicalType is null)
+    {
+      throw new Exception("Logical type is null");
+    }
 
     // Get the encoding in the page:
     switch (dataPageHeader.Encoding)
     {
       case Thrift.Encoding.PLAIN:
         encoding = new PlainEncoding(buffer);
-        return encoding.Read(type, dataPageHeader.NumValues);
+        return encoding.ReadLogical(element.LogicalType, dataPageHeader.NumValues);
       case Thrift.Encoding.DELTA_BINARY_PACKED:
         // for int32 and int64
         encoding = new DeltaBinaryPackedEncoding(buffer);
-        return encoding.Read(type, dataPageHeader.NumValues);
+        return encoding.ReadLogical(element.LogicalType, dataPageHeader.NumValues);
       default:
         throw new Exception($"Encoding {dataPageHeader.Encoding} not supported.");
     }

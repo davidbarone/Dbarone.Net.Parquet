@@ -1,6 +1,8 @@
-using Dbarone.Net.Buffers;
-
 namespace Dbarone.Net.Parquet.Encoding;
+
+using Dbarone.Net.Buffers;
+using Dbarone.Net.Parquet.Thrift;
+using System.Linq;
 
 public class Encoding : IEncoding
 {
@@ -63,6 +65,61 @@ public class Encoding : IEncoding
     else
     {
       throw new NotSupportedException();
+    }
+  }
+
+  /// <summary>
+  /// Reads data based on logical type. Maps to Parquet physical type.
+  /// 
+  /// Refer: https://parquet.apache.org/docs/file-format/types/logicaltypes/
+  /// </summary>
+  /// <param name="logicalType">Thrift logical type</param>
+  /// <param name="length">Number of values to read.</param>
+  /// <returns>Returns an array of objects.</returns>
+  public object[] ReadLogical(LogicalType logicalType, int numValues)
+  {
+    if (logicalType.STRING is not null)
+    {
+      // strings stored in UTF8.
+      var values = Read(Parquet.Thrift.Type.BYTE_ARRAY, numValues).Select(v => System.Text.Encoding.UTF8.GetString((byte[])v)).ToArray();
+      return values;
+    }
+    else if (logicalType.INTEGER is not null)
+    {
+      // covers all the signed/unsigned integers
+      var lt = logicalType.INTEGER;
+      if (lt.BitWidth == 32 && lt.IsSigned)
+      {
+        // Int32
+        var values = ReadInt32(numValues);
+        return values.Cast<object>().ToArray();
+      }
+      else if (lt.BitWidth == 32 && !lt.IsSigned)
+      {
+        // UInt32
+        var values = ReadInt32(numValues);
+        return values.Select(v => (UInt32)v).Cast<object>().ToArray();
+      }
+      else if (lt.BitWidth == 64 && lt.IsSigned)
+      {
+        // Int64
+        var values = ReadInt64(numValues);
+        return values.Cast<object>().ToArray();
+      }
+      else if (lt.BitWidth == 64 && !lt.IsSigned)
+      {
+        // UInt64
+        var values = ReadInt64(numValues);
+        return values.Select(v => (UInt32)v).Cast<object>().ToArray();
+      }
+      else
+      {
+        throw new Exception($"Unable to read logical type: {logicalType}");
+      }
+    }
+    else
+    {
+      throw new Exception($"Unable to read logical type: {logicalType}");
     }
   }
 }
