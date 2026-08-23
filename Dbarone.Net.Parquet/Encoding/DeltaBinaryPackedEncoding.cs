@@ -28,36 +28,57 @@ using Dbarone.Net.Buffers;
 /// the bitwidth of each miniblock is stored as a byte
 /// each miniblock is a list of bit-packed ints according to the bit width stored at the beginning of the block
 /// </summary>
-public class DeltaBinaryPackedEncoder
+public class DeltaBinaryPackedEncoding : Encoding
 {
+  public DeltaBinaryPackedEncoding(IBuffer buffer) : base(buffer) { }
+
+  public override int[] ReadInt32(int numValues)
+  {
+    return ReadBlock(numValues).Select(i => (int)i).ToArray();
+  }
+
+  public override long[] ReadInt64(int numValues)
+  {
+    return ReadBlock(numValues).Cast<long>().ToArray();
+  }
+
   /// <summary>
   /// Decodes to an sequence of long integers.
   /// </summary>
   /// <param name="buffer"></param>
   /// <returns></returns>
-  public IEnumerable<long> Decode(IBuffer buffer)
+  private long[] ReadBlock(int numValues)
   {
     // Block size (ULEB128)
-    var blockSize = buffer.ReadULEB128().Value;
+    var blockSize = Buffer.ReadULEB128().Value;
     // Number of mini blocks (ULEB128)
-    var miniblockCount = buffer.ReadULEB128().Value;
+    var miniblockCount = Buffer.ReadULEB128().Value;
     // Total values (ULEB128)
-    var totalValues = buffer.ReadULEB128().Value;
+    var totalValues = Buffer.ReadULEB128().Value;
+
+    if ((int)totalValues != numValues)
+    {
+      throw new Exception("totalValues != numValues. Note that totalValues does not count null values.");
+    }
+
+    long[] results = new long[totalValues];
+    ulong processed = 0;
+
     // First value (zigzag ULEB128)
-    var firstValue = buffer.ReadZigZag().Decoded;
+    var firstValue = Buffer.ReadZigZag().Decoded;
     // valuesInMiniBlock (calculated: must be multiple of 32)
     var valuesInMiniBlock = blockSize / miniblockCount;
 
-    ulong processed = 0;
     var prevValue = firstValue;
 
     if (totalValues > 0)
     {
       // yield first value
+      results[processed] = (long)prevValue;
       processed++;
-      yield return prevValue;
     }
 
+    // > 1 value?
     if (processed < totalValues)
     {
       var blockCount = totalValues / blockSize + 1;
@@ -72,18 +93,18 @@ public class DeltaBinaryPackedEncoder
 
         // process each block
         // Min Delta (zigzag ULEB128)
-        var minDelta = buffer.ReadZigZag().Decoded;
+        var minDelta = Buffer.ReadZigZag().Decoded;
 
         // Read in the bit-width (byte) for EACH mini block in block
         List<byte> bitWidths = new List<byte>();
         for (ulong j = 0; j < miniBlocksInBlock; j++)
         {
-          bitWidths.Add(buffer.ReadBytes(1)[0]);
+          bitWidths.Add(Buffer.ReadBytes(1)[0]);
         }
 
         // read each miniblock
         // data from this point is bit-packed
-        BitPackedBuffer bpb = new BitPackedBuffer(buffer);
+        BitPackedBuffer bpb = new BitPackedBuffer(Buffer);
 
         for (int j = 0; j < (int)miniBlocksInBlock && processed < totalValues; j++)
         {
@@ -94,8 +115,8 @@ public class DeltaBinaryPackedEncoder
             {
               // no need to read data for bit width = 0
               prevValue = prevValue + (0 + minDelta);
+              results[processed] = prevValue;
               processed++;
-              yield return prevValue;
             }
             else
             {
@@ -103,12 +124,13 @@ public class DeltaBinaryPackedEncoder
               var value = bpb.Read(bitWidth);
               // calculate actual value
               prevValue = prevValue + (value + minDelta);
+              results[processed] = prevValue;
               processed++;
-              yield return prevValue;
             }
           }
         }
       }
     }
+    return results;
   }
 }

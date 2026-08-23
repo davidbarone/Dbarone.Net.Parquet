@@ -48,6 +48,26 @@ public class PlainEncoding : Encoding
     return results;
   }
 
+  public override float[] ReadFloat(int numValues)
+  {
+    float[] results = new float[numValues];
+    for (int i = 0; i < numValues; i++)
+    {
+      results[i] = Buffer.ReadFloat(Endianness.LITTLE_ENDIAN);
+    }
+    return results;
+  }
+
+  public override double[] ReadDouble(int numValues)
+  {
+    double[] results = new double[numValues];
+    for (int i = 0; i < numValues; i++)
+    {
+      results[i] = Buffer.ReadDouble(Endianness.LITTLE_ENDIAN);
+    }
+    return results;
+  }
+
   public override byte[][] ReadByteArray(int numValues)
   {
     byte[][] results = new byte[numValues][];

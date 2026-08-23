@@ -172,7 +172,7 @@ public class ParquetSerializer
   /// </summary>
   /// <param name="buffer">The parquet buffer.</param>
   /// <returns>Returns a dictionary page.</returns>
-  private IList<object> GetDictionary(DictionaryPageHeader header, Dbarone.Net.Parquet.Thrift.Type type, IBuffer buffer)
+  private object[] GetDictionary(DictionaryPageHeader header, Dbarone.Net.Parquet.Thrift.Type type, IBuffer buffer)
   {
     if (header is null)
     {
@@ -184,7 +184,8 @@ public class ParquetSerializer
 
     if (enc == Dbarone.Net.Parquet.Thrift.Encoding.PLAIN_DICTIONARY)
     {
-      var dict = new PlainEncoding(buffer).Decode(buffer, header.NumValues, type).ToList();
+      var encoding = new PlainEncoding(buffer);
+      var dict = encoding.Read(type, header.NumValues);
       return dict;
     }
     else
@@ -196,33 +197,18 @@ public class ParquetSerializer
 
   private object[] GetDataPage(Dbarone.Net.Parquet.Thrift.Type type, DataPageHeader dataPageHeader, IBuffer buffer)
   {
+    Dbarone.Net.Parquet.Encoding.Encoding encoding = default!;
+
     // Get the encoding in the page:
     switch (dataPageHeader.Encoding)
     {
       case Thrift.Encoding.PLAIN:
-        PlainEncoding encoding = new PlainEncoding(buffer);
+        encoding = new PlainEncoding(buffer);
         return encoding.Read(type, dataPageHeader.NumValues);
-        break;
       case Thrift.Encoding.DELTA_BINARY_PACKED:
         // for int32 and int64
-        DeltaBinaryPackedEncoder encoder = new DeltaBinaryPackedEncoder();
-        var result = encoder.Decode(buffer);
-        foreach (var item in result)
-        {
-          if (type == Thrift.Type.INT32)
-          {
-            yield return (int)item;
-          }
-          else if (type == Thrift.Type.INT64)
-          {
-            yield return item;
-          }
-          else
-          {
-            throw new Exception($"Invalid type: {type}");
-          }
-        }
-        break;
+        encoding = new DeltaBinaryPackedEncoding(buffer);
+        return encoding.Read(type, dataPageHeader.NumValues);
       default:
         throw new Exception($"Encoding {dataPageHeader.Encoding} not supported.");
     }
