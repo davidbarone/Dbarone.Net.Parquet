@@ -88,7 +88,31 @@ public class Encoding : IEncoding
     {
       // covers all the signed/unsigned integers
       var lt = logicalType.INTEGER;
-      if (lt.BitWidth == 32 && lt.IsSigned)
+      if (lt.BitWidth == 8 && lt.IsSigned)
+      {
+        // sbyte
+        var values = ReadInt32(numValues).Select(v => Convert.ToSByte(v)).Cast<object>().ToArray();
+        return values;
+      }
+      else if (lt.BitWidth == 8 && !lt.IsSigned)
+      {
+        // byte
+        var values = ReadInt32(numValues).Select(v => Convert.ToByte(v)).Cast<object>().ToArray();
+        return values;
+      }
+      else if (lt.BitWidth == 16 && lt.IsSigned)
+      {
+        // short
+        var values = ReadInt32(numValues).Select(v => Convert.ToInt16(v)).Cast<object>().ToArray();
+        return values;
+      }
+      else if (lt.BitWidth == 16 && !lt.IsSigned)
+      {
+        // ushort
+        var values = ReadInt32(numValues).Select(v => Convert.ToUInt16(v)).Cast<object>().ToArray();
+        return values;
+      }
+      else if (lt.BitWidth == 32 && lt.IsSigned)
       {
         // Int32
         var values = ReadInt32(numValues);

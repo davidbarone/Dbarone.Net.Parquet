@@ -34,11 +34,29 @@ public class ParquetNETHelper
       var nullable = table[item].Nullable;
       switch (dataType)
       {
+        case Type _ when dataType == typeof(byte):
+          fields.Add(new ParquetNetSchema.DataField<byte>(name, nullable));
+          break;
+        case Type _ when dataType == typeof(sbyte):
+          fields.Add(new ParquetNetSchema.DataField<sbyte>(name, nullable));
+          break;
+        case Type _ when dataType == typeof(Int16):
+          fields.Add(new ParquetNetSchema.DataField<Int16>(name, nullable));
+          break;
+        case Type _ when dataType == typeof(UInt16):
+          fields.Add(new ParquetNetSchema.DataField<UInt16>(name, nullable));
+          break;
         case Type _ when dataType == typeof(Int32):
-          fields.Add(new ParquetNetSchema.DataField<int>(name, nullable));
+          fields.Add(new ParquetNetSchema.DataField<Int32>(name, nullable));
+          break;
+        case Type _ when dataType == typeof(UInt32):
+          fields.Add(new ParquetNetSchema.DataField<UInt32>(name, nullable));
           break;
         case Type _ when dataType == typeof(Int64):
-          fields.Add(new ParquetNetSchema.DataField<long>(name, nullable));
+          fields.Add(new ParquetNetSchema.DataField<Int64>(name, nullable));
+          break;
+        case Type _ when dataType == typeof(UInt64):
+          fields.Add(new ParquetNetSchema.DataField<UInt64>(name, nullable));
           break;
         case Type _ when dataType == typeof(string):
           fields.Add(new ParquetNetSchema.DataField<string>(name, nullable));
@@ -65,17 +83,53 @@ public class ParquetNETHelper
           {
             switch (dataField.ClrType)
             {
+              case Type _ when dataField.ClrType == typeof(byte):
+                await groupWriter
+                  .WriteAsync<byte>(
+                    (ParquetNetSchema.DataField)field,
+                    rows.Select(r => Convert.ToByte(r[field.Name])).ToArray());
+                break;
+              case Type _ when dataField.ClrType == typeof(sbyte):
+                await groupWriter
+                  .WriteAsync<sbyte>(
+                    (ParquetNetSchema.DataField)field,
+                    rows.Select(r => Convert.ToSByte(r[field.Name])).ToArray());
+                break;
+              case Type _ when dataField.ClrType == typeof(Int16):
+                await groupWriter
+                  .WriteAsync<Int16>(
+                    (ParquetNetSchema.DataField)field,
+                    rows.Select(r => Convert.ToInt16(r[field.Name])).ToArray());
+                break;
+              case Type _ when dataField.ClrType == typeof(UInt16):
+                await groupWriter
+                  .WriteAsync<UInt16>(
+                    (ParquetNetSchema.DataField)field,
+                    rows.Select(r => Convert.ToUInt16(r[field.Name])).ToArray());
+                break;
               case Type _ when dataField.ClrType == typeof(Int32):
                 await groupWriter
                   .WriteAsync<Int32>(
                     (ParquetNetSchema.DataField)field,
                     rows.Select(r => Convert.ToInt32(r[field.Name])).ToArray());
                 break;
+              case Type _ when dataField.ClrType == typeof(UInt32):
+                await groupWriter
+                  .WriteAsync<UInt32>(
+                    (ParquetNetSchema.DataField)field,
+                    rows.Select(r => Convert.ToUInt32(r[field.Name])).ToArray());
+                break;
               case Type _ when dataField.ClrType == typeof(Int64):
                 await groupWriter
                   .WriteAsync<Int64>(
                     (ParquetNetSchema.DataField)field,
                     rows.Select(r => Convert.ToInt64(r[field.Name])).ToArray());
+                break;
+              case Type _ when dataField.ClrType == typeof(UInt64):
+                await groupWriter
+                  .WriteAsync<UInt64>(
+                    (ParquetNetSchema.DataField)field,
+                    rows.Select(r => Convert.ToUInt64(r[field.Name])).ToArray());
                 break;
               case Type _ when dataField.ClrType == typeof(ReadOnlyMemory<char>): // Parquet >6.1 strings
                 await groupWriter
@@ -123,15 +177,45 @@ public class ParquetNETHelper
         {
           switch (field.ClrType)
           {
+            case Type byteType when byteType == typeof(byte):
+              byte[] byteValues = new byte[groupReader.RowCount];
+              await groupReader.ReadAsync<byte>(field, byteValues);
+              dataAsList.Add(byteValues.Cast<object>().ToList());
+              break;
+            case Type sByteType when sByteType == typeof(sbyte):
+              sbyte[] sByteValues = new sbyte[groupReader.RowCount];
+              await groupReader.ReadAsync<sbyte>(field, sByteValues);
+              dataAsList.Add(sByteValues.Cast<object>().ToList());
+              break;
+            case Type shortType when shortType == typeof(short):
+              short[] shortValues = new short[groupReader.RowCount];
+              await groupReader.ReadAsync<short>(field, shortValues);
+              dataAsList.Add(shortValues.Cast<object>().ToList());
+              break;
+            case Type uShortType when uShortType == typeof(ushort):
+              ushort[] uShortValues = new ushort[groupReader.RowCount];
+              await groupReader.ReadAsync<ushort>(field, uShortValues);
+              dataAsList.Add(uShortValues.Cast<object>().ToList());
+              break;
             case Type intType when intType == typeof(Int32):
               int[] intValues = new int[groupReader.RowCount];
               await groupReader.ReadAsync<int>(field, intValues);
               dataAsList.Add(intValues.Cast<object>().ToList());
               break;
+            case Type uIntType when uIntType == typeof(UInt32):
+              uint[] uIntValues = new uint[groupReader.RowCount];
+              await groupReader.ReadAsync<uint>(field, uIntValues);
+              dataAsList.Add(uIntValues.Cast<object>().ToList());
+              break;
             case Type longType when longType == typeof(Int64):
               long[] longValues = new long[groupReader.RowCount];
               await groupReader.ReadAsync<long>(field, longValues);
               dataAsList.Add(longValues.Cast<object>().ToList());
+              break;
+            case Type uLongType when uLongType == typeof(UInt64):
+              ulong[] uLongValues = new ulong[groupReader.RowCount];
+              await groupReader.ReadAsync<ulong>(field, uLongValues);
+              dataAsList.Add(uLongValues.Cast<object>().ToList());
               break;
             case Type stringType when stringType == typeof(ReadOnlyMemory<char>): // Parquet >6.1 string
               string[] stringValues = new string[groupReader.RowCount];

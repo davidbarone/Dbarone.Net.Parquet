@@ -11,8 +11,14 @@ public class TestPackColumn
   private Dictionary<string, Func<IEnumerable<object>>> ValueGeneratorMapping => new Dictionary<string, Func<IEnumerable<object>>>
   {
     {"INT_12345", () => Enumerable.Range(1, 5).Select(n=>(object)n) },
-    {"LONG_MAX", () => new object[] { long.MaxValue } },
-    {"LONG_MIN", () => new object[] { long.MinValue } },
+    {"INT8_MIN_MAX", () => new object[] { sbyte.MinValue, sbyte.MaxValue } },
+    {"UINT8_MIN_MAX", () => new object[] { byte.MinValue, byte.MaxValue } },
+    {"INT16_MIN_MAX", () => new object[] { short.MinValue, short.MaxValue } },
+    {"UINT16_MIN_MAX", () => new object[] { ushort.MinValue, ushort.MaxValue } },
+    {"INT32_MIN_MAX", () => new object[] { int.MinValue, int.MaxValue } },
+    {"UINT32_MIN_MAX", () => new object[] { uint.MinValue, uint.MaxValue } },
+    {"INT64_MIN_MAX", () => new object[] { long.MinValue, long.MaxValue } },
+    {"UINT64_MIN_MAX", () => new object[] { ulong.MinValue, ulong.MaxValue } },
     {"INT_111222233333",  () => new object[] { 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3 }},
     {"LONG_MAX_REPEAT_1000000", () => Enumerable.Repeat(long.MaxValue,1000000).Select(n => (object)n)},
     {"STR_ABCDEFG", () => new object[] { "A", "B", "C", "D", "E", "F", "G" }},
@@ -22,8 +28,14 @@ public class TestPackColumn
   private Dictionary<string, Type> TypeMapping => new Dictionary<string, Type>()
   {
     {"BOOLEAN", typeof(bool)},
-    {"INT32", typeof(Int32)},
+    {"INT8", typeof(sbyte)},
+    {"UINT8", typeof(byte)},
+    {"INT16", typeof(short)},
+    {"UINT16", typeof(ushort)},
+    {"INT32", typeof(int)},
+    {"UINT32", typeof(uint)},
     {"INT64", typeof(long)},
+    {"UINT64", typeof(ulong)},
     {"BYTE_ARRAY", typeof(byte[])},
     {"STRING", typeof(string)},
     {"DECIMAL", typeof(decimal)},

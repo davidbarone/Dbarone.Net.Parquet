@@ -9,8 +9,6 @@ using System.Text.RegularExpressions;
 
 public class TestPack : Dictionary<string, TestPackTable>
 {
-
-
   /// <summary>
   /// Generates a test pack table from a spec string.
   /// 
@@ -68,12 +66,19 @@ public class TestPack : Dictionary<string, TestPackTable>
   {
     string[] testPack = new string[]
     {
+      // Compression:None, Encoding:PLAIN, Integer tests
+      "Compression:None[foo:INT8:INT8_MIN_MAX:PLAIN]",
+      "Compression:None[foo:UINT8:UINT8_MIN_MAX:PLAIN]",
+      "Compression:None[foo:INT16:INT16_MIN_MAX:PLAIN]",
+      "Compression:None[foo:UINT16:UINT16_MIN_MAX:PLAIN]",
+      "Compression:None[foo:INT32:INT32_MIN_MAX:PLAIN]",
+      "Compression:None[foo:UINT32:UINT32_MIN_MAX:PLAIN]",
+      "Compression:None[foo:INT64:INT64_MIN_MAX:PLAIN]",
+      "Compression:None[foo:UINT64:UINT64_MIN_MAX:PLAIN]",
       "Compression:None[foo:INT32:INT_12345:PLAIN]",
       "Compression:None[foo:INT32:INT_12345:DELTA_BINARY_PACKED]",
       "Compression:None[foo:INT64:INT_12345:PLAIN]",
       "Compression:None[foo:INT64:INT_12345:DELTA_BINARY_PACKED]",
-      "Compression:None[foo:INT64:LONG_MAX:PLAIN]",
-      "Compression:None[foo:INT64:LONG_MIN:PLAIN]",
       "Compression:None[foo:INT64:INT_111222233333:RLE_DICTIONARY]",
       "Compression:None[foo:INT64:LONG_MAX_REPEAT_1000000:RLE_DICTIONARY]",
       "Compression:None[foo:STRING:STR_ABCDEFG:PLAIN]",
