@@ -134,7 +134,7 @@ public class Encoding : IEncoding
       {
         // UInt64
         var values = ReadInt64(numValues);
-        return values.Select(v => (UInt32)v).Cast<object>().ToArray();
+        return values.Select(v => (UInt64)v).Cast<object>().ToArray();
       }
       else
       {

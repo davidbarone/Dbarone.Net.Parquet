@@ -8,6 +8,7 @@ using Xunit;
 using System;
 using System.Linq;
 using Dbarone.Net.Csv;
+using Dbarone.Net.Buffers.Document;
 
 /// <summary>
 /// To test Parquet serialization module, we use the Parquet.NET
@@ -28,8 +29,10 @@ public class ParquetSerializerTests
     {
       results.Add(new object[]
       {
-        kvp.Key,
-        kvp.Value
+        (
+          name: kvp.Key,
+          table: kvp.Value
+        )
       });
     }
     return results;
@@ -43,9 +46,10 @@ public class ParquetSerializerTests
   /// <returns></returns>
   [Theory]
   [MemberData(nameof(GetData), "")]
-  public async Task ParquetReadTest(string name, TestPackTable table)
+  public async Task ParquetReadTest((string name, TestPackTable table) testCase)
   {
-    Assert.NotNull(name);
+
+    var (name, table) = testCase;
 
     // Create an in-memory parquet file from the teset pack item:
     // for each table in the test pack, we first create an in memory parquet file
