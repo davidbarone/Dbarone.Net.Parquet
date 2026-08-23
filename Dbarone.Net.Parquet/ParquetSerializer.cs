@@ -184,7 +184,7 @@ public class ParquetSerializer
 
     if (enc == Dbarone.Net.Parquet.Thrift.Encoding.PLAIN_DICTIONARY)
     {
-      var dict = new PlainEncoder().Decode(buffer, header.NumValues, type).ToList();
+      var dict = new PlainEncoding(buffer).Decode(buffer, header.NumValues, type).ToList();
       return dict;
     }
     else
@@ -194,17 +194,14 @@ public class ParquetSerializer
     }
   }
 
-  private IEnumerable<object> GetDataPage(Dbarone.Net.Parquet.Thrift.Type type, DataPageHeader dataPageHeader, IBuffer buffer)
+  private object[] GetDataPage(Dbarone.Net.Parquet.Thrift.Type type, DataPageHeader dataPageHeader, IBuffer buffer)
   {
     // Get the encoding in the page:
     switch (dataPageHeader.Encoding)
     {
       case Thrift.Encoding.PLAIN:
-        PlainEncoder encoder2 = new PlainEncoder();
-        foreach (var item in encoder2.Decode(buffer, dataPageHeader.NumValues, type))
-        {
-          yield return item;
-        }
+        PlainEncoding encoding = new PlainEncoding(buffer);
+        return encoding.Read(type, dataPageHeader.NumValues);
         break;
       case Thrift.Encoding.DELTA_BINARY_PACKED:
         // for int32 and int64
