@@ -58,9 +58,17 @@ public class ParquetNETHelper
         case Type _ when dataType == typeof(UInt64):
           fields.Add(new ParquetNetSchema.DataField<UInt64>(name, nullable));
           break;
+        case Type _ when dataType == typeof(float):
+          fields.Add(new ParquetNetSchema.DataField<float>(name, nullable));
+          break;
+        case Type _ when dataType == typeof(double):
+          fields.Add(new ParquetNetSchema.DataField<double>(name, nullable));
+          break;
         case Type _ when dataType == typeof(string):
           fields.Add(new ParquetNetSchema.DataField<string>(name, nullable));
           break;
+        default:
+          throw new Exception($"Error in CreateFromTestPackTable(). Cannot create column for type: {dataType}.");
       }
     }
     var schema = new ParquetNetSchema.ParquetSchema(fields);
@@ -130,6 +138,18 @@ public class ParquetNETHelper
                   .WriteAsync<UInt64>(
                     (ParquetNetSchema.DataField)field,
                     rows.Select(r => Convert.ToUInt64(r[field.Name])).ToArray());
+                break;
+              case Type _ when dataField.ClrType == typeof(float):
+                await groupWriter
+                  .WriteAsync<float>(
+                    (ParquetNetSchema.DataField)field,
+                    rows.Select(r => Convert.ToSingle(r[field.Name])).ToArray());
+                break;
+              case Type _ when dataField.ClrType == typeof(double):
+                await groupWriter
+                  .WriteAsync<double>(
+                    (ParquetNetSchema.DataField)field,
+                    rows.Select(r => Convert.ToDouble(r[field.Name])).ToArray());
                 break;
               case Type _ when dataField.ClrType == typeof(ReadOnlyMemory<char>): // Parquet >6.1 strings
                 await groupWriter
@@ -217,11 +237,23 @@ public class ParquetNETHelper
               await groupReader.ReadAsync<ulong>(field, uLongValues);
               dataAsList.Add(uLongValues.Cast<object>().ToList());
               break;
+            case Type floatType when floatType == typeof(float):
+              float[] floatValues = new float[groupReader.RowCount];
+              await groupReader.ReadAsync<float>(field, floatValues);
+              dataAsList.Add(floatValues.Cast<object>().ToList());
+              break;
+            case Type doubleType when doubleType == typeof(double):
+              double[] doubleValues = new double[groupReader.RowCount];
+              await groupReader.ReadAsync<double>(field, doubleValues);
+              dataAsList.Add(doubleValues.Cast<object>().ToList());
+              break;
             case Type stringType when stringType == typeof(ReadOnlyMemory<char>): // Parquet >6.1 string
               string[] stringValues = new string[groupReader.RowCount];
               await groupReader.ReadAsync(field, stringValues);
               dataAsList.Add(stringValues.Cast<object>().ToList());
               break;
+            default:
+              throw new Exception($"Error in ToEnumerableDictionary(). Cannot write type: {field.ClrType}.");
           }
         }
 
