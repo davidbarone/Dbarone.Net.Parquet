@@ -109,6 +109,28 @@ A wider variety of logical types exist. The list of supported types is found in 
 | DATE              | Date without a time. Equivalent to number of days from Unix epoch, 1 January 1970  | INT32                | System.DateOnly |
 | TIME              |                                                                                    |                      | s               | k |
 
+### Encodings
+Parquet provides a number of encodings. Generally an encoding provides a different way to encode the values on disk. PLAIN encoding is the default encoder. Other encodings provide compression benefits. The table below shows which encodings are available for which physical types. The table also shows which encodings are currently supported in this project:
+
+| Encoding                | Enum | BOOLEAN | INT32 | INT64 | INT96 | FLOAT | DOUBLE | BYTE_ARRAY | FIXED_LEN_BYTE_ARRAY |
+| ----------------------- | ---- | ------- | ----- | ----- | ----- | ----- | ------ | ---------- | -------------------- |
+| PLAIN                   | 0    | *       | YES   | YES   | TBD   | YES   | YES    | YES        | *                    |
+| PLAIN_DICTIONARY        | 2    | **      | **    | **    | **    | **    | **     | **         | **                   |
+| RLE_DICTIONARY          | 8    |         |       |       |       |       |        |            |                      |
+| RLE                     | 3    |         |       |       |       |       |        |            |                      |
+| DELTA_BINARY_PACKED     | 5    |         | YES   | YES   |       |       |        |            |                      |
+| DELTA_LENGTH_BYTE_ARRAY | 6    |         |       |       |       |       |        |            |                      |
+| DELTA_STRINGS           | 7    |         |       |       |       |       |        |            |                      |
+| BYTE_STREAM_SPLIT       | 9    |         |       |       |       |       |        |            |                      |
+
+Key
+- YES: Implemented
+- *: Is valid encoding, but not yet supported in this project
+- **: Deprecated. Not implemented in this project
+
+Refer:
+- https://parquet.apache.org/docs/file-format/data-pages/encodings/
+- 
 ## Reading a Parquet file
 
 

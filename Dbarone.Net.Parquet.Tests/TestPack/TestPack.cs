@@ -75,6 +75,11 @@ public class TestPack : Dictionary<string, TestPackTable>
       "Compression:None[foo:UINT32:UINT32_MIN_MAX:PLAIN]",
       "Compression:None[foo:INT64:INT64_MIN_MAX:PLAIN]",
       "Compression:None[foo:UINT64:UINT64_MIN_MAX:PLAIN]",
+
+      // Compression:None, Encoding:PLAIN, Floating Point tests
+      "Compression:None[foo:FLOAT:FLOAT_MIN_MAX:PLAIN]",
+      "Compression:None[foo:DOUBLE:DOUBLE_MIN_MAX:PLAIN]",
+
       "Compression:None[foo:INT32:INT_12345:PLAIN]",
       "Compression:None[foo:INT32:INT_12345:DELTA_BINARY_PACKED]",
       "Compression:None[foo:INT64:INT_12345:PLAIN]",

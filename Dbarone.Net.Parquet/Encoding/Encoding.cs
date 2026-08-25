@@ -48,7 +48,7 @@ public class Encoding : IEncoding
     throw new NotSupportedException();
   }
 
-  public object[] Read(Thrift.Type type, int numValues)
+  public object[] Readxxx(Thrift.Type type, int numValues)
   {
     if (type == Thrift.Type.INT32)
     {
@@ -69,19 +69,39 @@ public class Encoding : IEncoding
   }
 
   /// <summary>
-  /// Reads data based on logical type. Maps to Parquet physical type.
+  /// Reads data for a schema element.
   /// 
   /// Refer: https://parquet.apache.org/docs/file-format/types/logicaltypes/
   /// </summary>
   /// <param name="logicalType">Thrift logical type</param>
   /// <param name="length">Number of values to read.</param>
   /// <returns>Returns an array of objects.</returns>
-  public object[] ReadLogical(LogicalType logicalType, int numValues)
+  public object[] Read(SchemaElement element, int numValues)
   {
-    if (logicalType.STRING is not null)
+    var logicalType = element.LogicalType;
+    var physicalType = element.Type;
+
+    if (physicalType == Type.FLOAT)
+    {
+      // no need for logical type for FLOAT
+      var values = ReadFloat(numValues);
+      return values.Cast<object>().ToArray();
+    }
+    else if (physicalType == Type.DOUBLE)
+    {
+      // no need for logical type for DOUBLE
+      var values = ReadDouble(numValues);
+      return values.Cast<object>().ToArray();
+    }
+    else if (physicalType == Type.BOOLEAN)
+    {
+      var values = ReadBool(numValues);
+      return values.Cast<object>().ToArray();
+    }
+    else if (logicalType.STRING is not null)
     {
       // strings stored in UTF8.
-      var values = Read(Parquet.Thrift.Type.BYTE_ARRAY, numValues).Select(v => System.Text.Encoding.UTF8.GetString((byte[])v)).ToArray();
+      var values = ReadByteArray(numValues).Select(v => System.Text.Encoding.UTF8.GetString((byte[])v)).ToArray();
       return values;
     }
     else if (logicalType.INTEGER is not null)

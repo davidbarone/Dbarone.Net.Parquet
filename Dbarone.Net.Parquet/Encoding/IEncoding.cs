@@ -1,5 +1,6 @@
 
 using Dbarone.Net.Buffers.Thrift;
+using Dbarone.Net.Parquet.Thrift;
 
 /// <summary>
 /// Defines the operations for a Parquet encoding algorithm.
@@ -16,6 +17,5 @@ public interface IEncoding
   public double[] ReadDouble(int numValues);
   public byte[][] ReadByteArray(int numValues);
   public byte[][] ReadFixedLengthByteArray(int numValues, int length);
-  public object[] Read(Dbarone.Net.Parquet.Thrift.Type type, int length);
-  public object[] ReadLogical(Dbarone.Net.Parquet.Thrift.LogicalType logicalType, int length);
+  public object[] Read(SchemaElement element, int length);
 }

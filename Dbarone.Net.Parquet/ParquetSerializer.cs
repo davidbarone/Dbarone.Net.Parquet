@@ -96,7 +96,7 @@ public class ParquetSerializer
         // Check the type of page
         if (ph.PageType == PageType.DICTIONARY_PAGE)
         {
-          var dict = GetDictionary(ph.DictionaryPageHeader!, chunk.Metadata!.Type, buffer);
+          var dict = GetDictionary(ph.DictionaryPageHeader!, schemaElement, buffer);
           // Now we get the data for the dictionary
           var dataPageHeader = GetPageHeader(buffer);
           if (dataPageHeader.PageType != PageType.DATA_PAGE)
@@ -173,7 +173,7 @@ public class ParquetSerializer
   /// </summary>
   /// <param name="buffer">The parquet buffer.</param>
   /// <returns>Returns a dictionary page.</returns>
-  private object[] GetDictionary(DictionaryPageHeader header, Dbarone.Net.Parquet.Thrift.Type type, IBuffer buffer)
+  private object[] GetDictionary(DictionaryPageHeader header, SchemaElement schemaElement, IBuffer buffer)
   {
     if (header is null)
     {
@@ -186,7 +186,7 @@ public class ParquetSerializer
     if (enc == Dbarone.Net.Parquet.Thrift.Encoding.PLAIN_DICTIONARY)
     {
       var encoding = new PlainEncoding(buffer);
-      var dict = encoding.Read(type, header.NumValues);
+      var dict = encoding.Read(schemaElement, header.NumValues);
       return dict;
     }
     else
@@ -196,7 +196,7 @@ public class ParquetSerializer
     }
   }
 
-  private object[] GetDataPage(IBuffer buffer, PageHeader pageHeader, SchemaElement element)
+  private object[] GetDataPage(IBuffer buffer, PageHeader pageHeader, SchemaElement schemaElement)
   {
     Dbarone.Net.Parquet.Encoding.Encoding encoding = default!;
 
@@ -206,21 +206,16 @@ public class ParquetSerializer
       throw new Exception("dataPageHeader is null");
     }
 
-    if (element.LogicalType is null)
-    {
-      throw new Exception("Logical type is null");
-    }
-
     // Get the encoding in the page:
     switch (dataPageHeader.Encoding)
     {
       case Thrift.Encoding.PLAIN:
         encoding = new PlainEncoding(buffer);
-        return encoding.ReadLogical(element.LogicalType, dataPageHeader.NumValues);
+        return encoding.Read(schemaElement, dataPageHeader.NumValues);
       case Thrift.Encoding.DELTA_BINARY_PACKED:
         // for int32 and int64
         encoding = new DeltaBinaryPackedEncoding(buffer);
-        return encoding.ReadLogical(element.LogicalType, dataPageHeader.NumValues);
+        return encoding.Read(schemaElement, dataPageHeader.NumValues);
       default:
         throw new Exception($"Encoding {dataPageHeader.Encoding} not supported.");
     }
