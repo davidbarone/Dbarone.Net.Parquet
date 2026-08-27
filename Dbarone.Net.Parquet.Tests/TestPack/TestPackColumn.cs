@@ -24,7 +24,8 @@ public class TestPackColumn
     { "INT_111222233333",  () => new object[] { 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3 }},
     {"LONG_MAX_REPEAT_1000000", () => Enumerable.Repeat(long.MaxValue,1000000).Select(n => (object)n)},
     {"STR_ABCDEFG", () => new object[] { "A", "B", "C", "D", "E", "F", "G" }},
-    {"STR_ABCABCABC", () => new object[] { "A", "B", "C", "A", "B", "C", "A", "B", "C" }}
+    {"STR_ABCABCABC", () => new object[] { "A", "B", "C", "A", "B", "C", "A", "B", "C" }},
+    {"STR_AAABBBBCCCCC", () => new object[] { "A", "A", "A", "B", "B", "B", "B", "C", "C", "C", "C" }}
   };
 
   private Dictionary<string, Type> TypeMapping => new Dictionary<string, Type>()

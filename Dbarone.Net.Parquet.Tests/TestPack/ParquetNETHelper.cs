@@ -32,6 +32,7 @@ public class ParquetNETHelper
       var name = item;
       var dataType = table[item].DataType;
       var nullable = table[item].Nullable;
+      var encoding = table[item].Encoding;
       switch (dataType)
       {
         case Type _ when dataType == typeof(byte):
@@ -79,7 +80,22 @@ public class ParquetNETHelper
       CompressionMethod = ParquetNet.CompressionMethod.None
     };
 
+    // Set column encoding hints - note that PLAIN cannot be set - it is the default
+    foreach (var key in table.Keys)
+    {
+      if (table[key].Encoding == Thrift.Encoding.DELTA_BINARY_PACKED)
+      {
+        options.ColumnEncodingHints[key] = ParquetNet.EncodingHint.DeltaBinaryPacked;
+      }
+      else if (table[key].Encoding == Thrift.Encoding.RLE_DICTIONARY)
+      {
+        // Note that Parquet.NET still uses PLAIN_DICTIONARY which is deprecated
+        options.ColumnEncodingHints[key] = ParquetNet.EncodingHint.Dictionary;
+      }
+    }
+
     MemoryStream ms = new MemoryStream();
+
     await using (var parquetWriter = await ParquetNet.ParquetWriter.CreateAsync(schema, ms, options: options))
     {
       using (ParquetNet.ParquetRowGroupWriter groupWriter = parquetWriter.CreateRowGroup())

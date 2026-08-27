@@ -9,6 +9,7 @@ using System;
 using System.Linq;
 using Dbarone.Net.Csv;
 using Dbarone.Net.Buffers.Document;
+using Dbarone.Net.Parquet.Thrift;
 
 /// <summary>
 /// To test Parquet serialization module, we use the Parquet.NET
@@ -36,6 +37,37 @@ public class ParquetSerializerTests
       });
     }
     return results;
+  }
+
+  private void VerifyColumnEncoding(TestPackTable table, Dbarone.Net.Parquet.Thrift.FileMetaData metadata)
+  {
+    // checks columns in test pack table and Parquet.NET match with encodings
+    foreach (var key in table.Keys)
+    {
+      var schemaElement = metadata.Schema.SingleOrDefault(e => e.Name.Equals(key));
+      if (schemaElement is null)
+      {
+        throw new Exception($"Column: {key} does not exist in Parquet.Net.");
+      }
+      var i = metadata.Schema.IndexOf(schemaElement);
+      // Get the column chunk for the schema element
+      var chunk_idx = new FileMetaDataHelper(metadata).SchemaElementToColumnChunkIndex(schemaElement.Name);
+      var parquetNetEncodings = metadata.RowGroups[0].Columns[chunk_idx].Metadata.Encodings;
+      if (parquetNetEncodings.Contains(table[key].Encoding))
+      {
+        // nop
+      }
+      else if (parquetNetEncodings.Contains(Encoding.PLAIN_DICTIONARY) && table[key].Encoding == Encoding.RLE_DICTIONARY)
+      {
+        // Note that Parquet.NET still uses PLAIN_DICTIONARY which is deprecated.
+        // Dbarone.Net.Parquet uses RLE_DICTIONARY which is the correct encoding for new files.
+        // nop
+      }
+      else
+      {
+        throw new Exception("Encoding: {table[key].Encoding} not in parquet file.");
+      }
+    }
   }
 
   /// <summary>
@@ -74,6 +106,9 @@ public class ParquetSerializerTests
       Assert.Equal(md.RowGroups[0].TotalByteSize, parquetDbarone.MetaData.RowGroups[0].TotalByteSize);
       Assert.Equal(md.Schema.Count, parquetDbarone.MetaData.Schema.Count);
       Assert.Equivalent(md.Schema.Select(s => s.Name), parquetDbarone.MetaData.Schema.Select(s => s.Name));
+
+      // Check metadata
+      VerifyColumnEncoding(table, parquetDbarone.MetaData);
 
       // Test that the original dataset, and the dataset read by Dbarone.Net.Database are the same:
       var parquetNETData = await ParquetNETHelper.ToEnumerableDictionary(parquetNet);
@@ -122,11 +157,6 @@ public class ParquetSerializerTests
     }
     return results;
   }
-
-
-
-
-
 
   #endregion
 

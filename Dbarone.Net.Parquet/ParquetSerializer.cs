@@ -4,7 +4,6 @@ using Dbarone.Net.Parquet.Thrift;
 using Dbarone.Net.Buffers;
 using Dbarone.Net.Buffers.Document;
 using Dbarone.Net.Parquet.Encoding;
-using System.Text;
 
 /// <summary>
 /// Parquet is an open source, column-oriented data file format designed for
@@ -31,7 +30,6 @@ public class ParquetSerializer
     IBuffer buffer = new GenericBuffer(bytes);
     return Read(buffer, textEncoding);
   }
-
 
   /// <summary>
   /// Deserializes a buffer contains parquet-formatted data, into a table.
@@ -85,7 +83,10 @@ public class ParquetSerializer
       {
         var schemaElement = schema[i];    // schema element
         var columnName = schema[i].Name;  // column name
-        var chunk = rowGroup.Columns[i - 1];
+
+        // Get the chunk index + chunk for the column
+        var chunk_idx = new FileMetaDataHelper(model.MetaData).SchemaElementToColumnChunkIndex(columnName);
+        var chunk = rowGroup.Columns[chunk_idx];
 
         // each column chunk in a row group is divided into pages.
         // get start and length of 1st page header for chunk
@@ -220,4 +221,6 @@ public class ParquetSerializer
         throw new Exception($"Encoding {dataPageHeader.Encoding} not supported.");
     }
   }
+
+
 }

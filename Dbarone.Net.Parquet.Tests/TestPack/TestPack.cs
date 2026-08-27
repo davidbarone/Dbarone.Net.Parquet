@@ -57,8 +57,19 @@ public class TestPack : Dictionary<string, TestPackTable>
   }
 
   /// <summary>
-  /// Generates the test pack. Note that this method can be modified to return
+  /// Generates a test pack of datasets to test Parquet reading/writing.
+  /// 
+  /// Note that this method can be modified to return
   /// only a single dataset by entering the name of the dataset in the parameter.
+  /// 
+  /// Each dataset in this test pack is fully-encoded by it's name. The
+  /// name provides:
+  /// - The overall compression algorithm used
+  /// - The names and data types and encodings for all the columns
+  /// - The data to be used in each of the columns
+  /// 
+  /// Note that Parquet.NET is not guaranteed to respect the
+  /// individual column hints provided.
   /// </summary>
   /// <param name="selectedDataset">Set this to the key of an individual test pack item to run only 1 test.</param>
   /// <returns>Returns a test pack of datasets.</returns>
@@ -84,12 +95,15 @@ public class TestPack : Dictionary<string, TestPackTable>
       "Compression:None[foo:INT32:INT_12345:DELTA_BINARY_PACKED]",
       "Compression:None[foo:INT64:INT_12345:PLAIN]",
       "Compression:None[foo:INT64:INT_12345:DELTA_BINARY_PACKED]",
-      "Compression:None[foo:INT64:INT_111222233333:RLE_DICTIONARY]",
-      "Compression:None[foo:INT64:LONG_MAX_REPEAT_1000000:RLE_DICTIONARY]",
       "Compression:None[foo:STRING:STR_ABCDEFG:PLAIN]",
       "Compression:None[foo:STRING:STR_ABCABCABC:PLAIN]",
-      "Compression:None[foo:STRING:STR_ABCDEFG:RLE_DICTIONARY]",
-      "Compression:None[foo:STRING:STR_ABCABCABC:RLE_DICTIONARY]"
+      "Compression:None[foo:STRING:STR_AAABBBBCCCCC:RLE_DICTIONARY]",
+      "Compression:None[foo:STRING:STR_ABCABCABC:RLE_DICTIONARY]",
+      "Compression:None[foo:INT64:INT_111222233333:PLAIN]",
+      "Compression:None[foo:INT64:LONG_MAX_REPEAT_1000000:PLAIN]"
+
+      // Failing tests
+
     };
 
     var filtered = testPack.Where(t => (selected is null || selected == "") || t.Equals(selected)).ToArray();
