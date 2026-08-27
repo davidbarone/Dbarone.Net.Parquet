@@ -65,6 +65,9 @@ public class ParquetNETHelper
         case Type _ when dataType == typeof(double):
           fields.Add(new ParquetNetSchema.DataField<double>(name, nullable));
           break;
+        case Type _ when dataType == typeof(byte[]):
+          fields.Add(new ParquetNetSchema.DataField<byte[]>(name, nullable));
+          break;
         case Type _ when dataType == typeof(string):
           fields.Add(new ParquetNetSchema.DataField<string>(name, nullable));
           break;
@@ -167,6 +170,12 @@ public class ParquetNETHelper
                     (ParquetNetSchema.DataField)field,
                     rows.Select(r => Convert.ToDouble(r[field.Name])).ToArray());
                 break;
+              case Type _ when dataField.ClrType == typeof(ReadOnlyMemory<byte>): // for byte array
+                await groupWriter
+                  .WriteAsync(
+                    (ParquetNetSchema.DataField)field,
+                    rows.Select(r => (byte[])(r[field.Name])).ToArray());
+                break;
               case Type _ when dataField.ClrType == typeof(ReadOnlyMemory<char>): // Parquet >6.1 strings
                 await groupWriter
                   .WriteAsync(
@@ -262,6 +271,11 @@ public class ParquetNETHelper
               double[] doubleValues = new double[groupReader.RowCount];
               await groupReader.ReadAsync<double>(field, doubleValues);
               dataAsList.Add(doubleValues.Cast<object>().ToList());
+              break;
+            case Type byteArrayType when byteArrayType == typeof(ReadOnlyMemory<byte>): // Parquet 6.1 BYTE_ARRAY
+              byte[][] byteArrayValues = new byte[groupReader.RowCount][];
+              await groupReader.ReadAsync(field, byteArrayValues);
+              dataAsList.Add(byteArrayValues.Cast<object>().ToList());
               break;
             case Type stringType when stringType == typeof(ReadOnlyMemory<char>): // Parquet >6.1 string
               string[] stringValues = new string[groupReader.RowCount];

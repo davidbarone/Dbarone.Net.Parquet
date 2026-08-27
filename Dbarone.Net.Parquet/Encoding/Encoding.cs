@@ -71,6 +71,9 @@ public class Encoding : IEncoding
   /// <summary>
   /// Reads data for a schema element.
   /// 
+  /// Not all types require logical types (for example if the physical
+  /// type fully describes the Parquet type, e.g. DOUBLE).
+  /// 
   /// Refer: https://parquet.apache.org/docs/file-format/types/logicaltypes/
   /// </summary>
   /// <param name="logicalType">Thrift logical type</param>
@@ -96,6 +99,12 @@ public class Encoding : IEncoding
     else if (physicalType == Type.BOOLEAN)
     {
       var values = ReadBool(numValues);
+      return values.Cast<object>().ToArray();
+    }
+    else if (physicalType == Type.BYTE_ARRAY && logicalType is null)
+    {
+      // BYTE_ARRAY
+      var values = ReadByteArray(numValues);
       return values.Cast<object>().ToArray();
     }
     else if (logicalType.STRING is not null)

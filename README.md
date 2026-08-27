@@ -114,7 +114,7 @@ Parquet provides a number of encodings. Generally an encoding provides a differe
 
 | Encoding                | Enum | BOOLEAN | INT32 | INT64 | INT96 | FLOAT | DOUBLE | BYTE_ARRAY | FIXED_LEN_BYTE_ARRAY |
 | ----------------------- | ---- | ------- | ----- | ----- | ----- | ----- | ------ | ---------- | -------------------- |
-| PLAIN                   | 0    | *       | YES   | YES   | TBD   | YES   | YES    | YES        | *                    |
+| PLAIN                   | 0    | *       | YES   | YES   | **    | YES   | YES    | YES        | YES                  |
 | PLAIN_DICTIONARY        | 2    | **      | **    | **    | **    | **    | **     | **         | **                   |
 | RLE_DICTIONARY          | 8    |         |       |       |       |       |        |            |                      |
 | RLE                     | 3    |         |       |       |       |       |        |            |                      |

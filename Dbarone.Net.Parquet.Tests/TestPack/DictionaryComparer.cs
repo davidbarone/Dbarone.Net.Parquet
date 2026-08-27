@@ -16,6 +16,7 @@ public class DictionaryComparer : IEqualityComparer<Dictionary<string, object?>>
 
       // Handle nulls and value equality
       if (kvp.Value == null && value != null) return false;
+      if (kvp.Value != null && kvp.Value.GetType() == typeof(byte[]) && ((byte[])kvp.Value).SequenceEqual((byte[])value)) return true;  // comparing byte[]
       if (kvp.Value != null && !kvp.Value.Equals(value)) return false;
     }
     return true;

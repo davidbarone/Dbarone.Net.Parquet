@@ -80,7 +80,6 @@ public class ParquetSerializerTests
   [MemberData(nameof(GetData), "")]
   public async Task ParquetReadTest((string name, TestPackTable table) testCase)
   {
-
     var (name, table) = testCase;
 
     // Create an in-memory parquet file from the teset pack item:
