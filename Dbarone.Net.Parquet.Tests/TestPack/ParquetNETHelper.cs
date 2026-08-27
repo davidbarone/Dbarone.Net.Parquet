@@ -35,6 +35,9 @@ public class ParquetNETHelper
       var encoding = table[item].Encoding;
       switch (dataType)
       {
+        case Type _ when dataType == typeof(bool):
+          fields.Add(new ParquetNetSchema.DataField<bool>(name, nullable));
+          break;
         case Type _ when dataType == typeof(byte):
           fields.Add(new ParquetNetSchema.DataField<byte>(name, nullable));
           break;
@@ -110,6 +113,12 @@ public class ParquetNETHelper
           {
             switch (dataField.ClrType)
             {
+              case Type _ when dataField.ClrType == typeof(bool):
+                await groupWriter
+                  .WriteAsync<bool>(
+                    (ParquetNetSchema.DataField)field,
+                    rows.Select(r => Convert.ToBoolean(r[field.Name])).ToArray());
+                break;
               case Type _ when dataField.ClrType == typeof(byte):
                 await groupWriter
                   .WriteAsync<byte>(
@@ -222,6 +231,11 @@ public class ParquetNETHelper
         {
           switch (field.ClrType)
           {
+            case Type boolType when boolType == typeof(bool):
+              bool[] boolValues = new bool[groupReader.RowCount];
+              await groupReader.ReadAsync<bool>(field, boolValues);
+              dataAsList.Add(boolValues.Cast<object>().ToList());
+              break;
             case Type byteType when byteType == typeof(byte):
               byte[] byteValues = new byte[groupReader.RowCount];
               await groupReader.ReadAsync<byte>(field, byteValues);

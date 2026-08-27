@@ -26,7 +26,8 @@ public class TestPackColumn
     {"STR_ABCDEFG", () => new object[] { "A", "B", "C", "D", "E", "F", "G" }},
     {"STR_ABCABCABC", () => new object[] { "A", "B", "C", "A", "B", "C", "A", "B", "C" }},
     {"STR_AAABBBBCCCCC", () => new object[] { "A", "A", "A", "B", "B", "B", "B", "C", "C", "C", "C" } },
-    {"BYTE_ARRAY_12345", () => new object[]{ new byte[] { 1 }, new byte[] { 2 }, new byte[] { 3 }, new byte[] { 4 }, new byte[] { 5 } } }
+    {"BYTE_ARRAY_12345", () => new object[]{ new byte[] { 1 }, new byte[] { 2 }, new byte[] { 3 }, new byte[] { 4 }, new byte[] { 5 } } },
+    {"BOOLEAN_FTFTFFTT", () => new object[]{ false, true, false, true, false, false, true, true} }
   };
 
   private Dictionary<string, Type> TypeMapping => new Dictionary<string, Type>()

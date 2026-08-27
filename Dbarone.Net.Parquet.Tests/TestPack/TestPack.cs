@@ -89,6 +89,7 @@ public class TestPack : Dictionary<string, TestPackTable>
       "Compression:None[foo:FLOAT:FLOAT_MIN_MAX:PLAIN]",
       "Compression:None[foo:DOUBLE:DOUBLE_MIN_MAX:PLAIN]",
       "Compression:None[foo:BYTE_ARRAY:BYTE_ARRAY_12345:PLAIN]",
+      "Compression:None[foo:BOOLEAN:BOOLEAN_FTFTFFTT:PLAIN]",
 
       // Other tests
       "Compression:None[foo:INT32:INT_12345:PLAIN]",

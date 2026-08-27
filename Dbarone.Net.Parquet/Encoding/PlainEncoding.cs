@@ -28,6 +28,11 @@ public class PlainEncoding : Encoding
 {
   public PlainEncoding(IBuffer buffer) : base(buffer) { }
 
+  public override bool[] ReadBool(int numValues)
+  {
+    return base.ReadBool(numValues);
+  }
+
   public override int[] ReadInt32(int numValues)
   {
     int[] results = new int[numValues];

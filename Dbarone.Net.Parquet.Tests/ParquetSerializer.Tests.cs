@@ -77,7 +77,7 @@ public class ParquetSerializerTests
   /// <param name="data"></param>
   /// <returns></returns>
   [Theory]
-  [MemberData(nameof(GetData), "")]
+  [MemberData(nameof(GetData), "Compression:None[foo:BOOLEAN:BOOLEAN_FTFTFFTT:PLAIN]")]
   public async Task ParquetReadTest((string name, TestPackTable table) testCase)
   {
     var (name, table) = testCase;

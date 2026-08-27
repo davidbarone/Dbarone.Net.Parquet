@@ -20,7 +20,7 @@ public class RLEEncoder
     {
       // grammar for RLE:
       // rle-run := <rle-header> <repeated-value>
-      // rle-header := varint - encode((rle - run - len) << 1)
+      // rle-header := varint-encode((rle-run-len) << 1)
 
       // Get header, and shift 1 by one:
       var runLength = buffer.ReadULEB128().Value;
