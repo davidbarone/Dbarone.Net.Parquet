@@ -104,7 +104,7 @@ public class DeltaBinaryPackedEncoding : Encoding
 
         // read each miniblock
         // data from this point is bit-packed
-        BitPackedBuffer bpb = new BitPackedBuffer(Buffer);
+        var bpb = Buffer.GetBitPackedBuffer(BitOrder.LSB);
 
         for (int j = 0; j < (int)miniBlocksInBlock && processed < totalValues; j++)
         {
@@ -121,7 +121,7 @@ public class DeltaBinaryPackedEncoding : Encoding
             else
             {
               // read next bit-packed value
-              var value = bpb.Read(bitWidth);
+              var value = bpb.ReadBits(bitWidth);
               // calculate actual value
               prevValue = prevValue + (value + minDelta);
               results[processed] = prevValue;

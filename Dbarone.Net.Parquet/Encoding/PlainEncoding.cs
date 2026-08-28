@@ -30,7 +30,18 @@ public class PlainEncoding : Encoding
 
   public override bool[] ReadBool(int numValues)
   {
-    return base.ReadBool(numValues);
+    // Under plain encoding, booleans are read using bit-packed
+    // protocol.
+    // Note that no headers are stored though - just plain
+    // bit-packed bits.
+    var bpb = this.Buffer.GetBitPackedBuffer(BitOrder.LSB);
+    bool[] results = new bool[numValues];
+    for (int i = 0; i < numValues; i++)
+    {
+      var value = (bpb.ReadBits(1) == 1) ? true : false;
+      results[i] = value;
+    }
+    return results;
   }
 
   public override int[] ReadInt32(int numValues)
