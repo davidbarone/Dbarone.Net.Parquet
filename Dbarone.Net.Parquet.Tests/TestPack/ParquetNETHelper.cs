@@ -143,11 +143,17 @@ public class ParquetNETHelper
                     (ParquetNetSchema.DataField)field,
                     rows.Select(r => Convert.ToUInt16(r[field.Name])).ToArray());
                 break;
-              case Type _ when dataField.ClrType == typeof(Int32):
+              case Type _ when dataField.ClrType == typeof(Int32) && !dataField.IsNullable:
                 await groupWriter
                   .WriteAsync<Int32>(
                     (ParquetNetSchema.DataField)field,
                     rows.Select(r => Convert.ToInt32(r[field.Name])).ToArray());
+                break;
+              case Type _ when dataField.ClrType == typeof(Int32) && dataField.IsNullable:
+                await groupWriter
+                  .WriteAsync<int>(
+                    (ParquetNetSchema.DataField)field,
+                    rows.Select(r => (int?)(r[field.Name])).ToArray());
                 break;
               case Type _ when dataField.ClrType == typeof(UInt32):
                 await groupWriter

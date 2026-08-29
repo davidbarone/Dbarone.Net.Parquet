@@ -91,6 +91,10 @@ public class TestPack : Dictionary<string, TestPackTable>
       "Compression:None[foo:BYTE_ARRAY:BYTE_ARRAY_12345:PLAIN]",
       "Compression:None[foo:BOOLEAN:BOOLEAN_FTFTFFTT:PLAIN]",
 
+      // Compression:None, Encoding:Plain, Nullable tests
+      "Compression:None[foo:INT32?:INT32_1_2_3_NULL_NULL_NULL_4_5:PLAIN]",
+
+
       // Other tests
       "Compression:None[foo:INT32:INT_12345:PLAIN]",
       "Compression:None[foo:INT32:INT_12345:DELTA_BINARY_PACKED]",

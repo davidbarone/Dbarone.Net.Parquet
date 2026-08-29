@@ -16,6 +16,7 @@ public class TestPackColumn
     {"INT16_MIN_MAX", () => new object[] { short.MinValue, short.MaxValue } },
     {"UINT16_MIN_MAX", () => new object[] { ushort.MinValue, ushort.MaxValue } },
     {"INT32_MIN_MAX", () => new object[] { int.MinValue, int.MaxValue } },
+    {"INT32_1_2_3_NULL_NULL_NULL_4_5", () => new object[] { 1, 2, 3, null, null, null, 4, 5 } },
     {"UINT32_MIN_MAX", () => new object[] { uint.MinValue, uint.MaxValue } },
     {"INT64_MIN_MAX", () => new object[] { long.MinValue, long.MaxValue } },
     {"UINT64_MIN_MAX", () => new object[] { ulong.MinValue, ulong.MaxValue } },

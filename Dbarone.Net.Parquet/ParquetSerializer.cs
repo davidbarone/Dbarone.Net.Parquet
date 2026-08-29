@@ -197,6 +197,7 @@ public class ParquetSerializer
     }
   }
 
+
   private object[] GetDataPage(IBuffer buffer, PageHeader pageHeader, SchemaElement schemaElement)
   {
     Dbarone.Net.Parquet.Encoding.Encoding encoding = default!;

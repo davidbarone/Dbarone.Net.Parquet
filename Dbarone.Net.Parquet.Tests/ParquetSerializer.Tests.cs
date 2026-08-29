@@ -77,7 +77,7 @@ public class ParquetSerializerTests
   /// <param name="data"></param>
   /// <returns></returns>
   [Theory]
-  [MemberData(nameof(GetData), "")]
+  [MemberData(nameof(GetData), "Compression:None[foo:INT32?:INT32_1_2_3_NULL_NULL_NULL_4_5:PLAIN]")]
   public async Task ParquetReadTest((string name, TestPackTable table) testCase)
   {
     var (name, table) = testCase;

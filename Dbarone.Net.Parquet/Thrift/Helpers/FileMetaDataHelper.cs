@@ -65,4 +65,12 @@ public class FileMetaDataHelper
     }
     return columnChunkIndex;
   }
+
+  public int GetMaxDefinitionLevel(string columnName)
+  {
+    var columns = this.MetaData.Schema;
+    var column = columns.FirstOrDefault(c => c.Name.Equals(columnName));
+
+    column.RepetitionType
+  }
 }

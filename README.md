@@ -114,9 +114,9 @@ Parquet provides a number of encodings. Generally an encoding provides a differe
 
 | Encoding                | Enum | BOOLEAN | INT32 | INT64 | INT96 | FLOAT | DOUBLE | BYTE_ARRAY | FIXED_LEN_BYTE_ARRAY |
 | ----------------------- | ---- | ------- | ----- | ----- | ----- | ----- | ------ | ---------- | -------------------- |
-| PLAIN                   | 0    | *       | YES   | YES   | **    | YES   | YES    | YES        | YES                  |
-| PLAIN_DICTIONARY        | 2    | **      | **    | **    | **    | **    | **     | **         | **                   |
-| RLE_DICTIONARY          | 8    |         |       |       |       |       |        |            |                      |
+| PLAIN                   | 0    | YES     | YES   | YES   | **    | YES   | YES    | YES        | YES                  |
+| PLAIN_DICTIONARY        | 2    | **      | **    | **    |       | **    | **     | **         | **                   |
+| RLE_DICTIONARY          | 8    |         | YES   | YES   |       | YES   | YES    | YES        | YES                  |
 | RLE                     | 3    |         |       |       |       |       |        |            |                      |
 | DELTA_BINARY_PACKED     | 5    |         | YES   | YES   |       |       |        |            |                      |
 | DELTA_LENGTH_BYTE_ARRAY | 6    |         |       |       |       |       |        |            |                      |
@@ -124,13 +124,100 @@ Parquet provides a number of encodings. Generally an encoding provides a differe
 | BYTE_STREAM_SPLIT       | 9    |         |       |       |       |       |        |            |                      |
 
 Key
-- YES: Implemented
-- *: Is valid encoding, but not yet supported in this project
-- **: Deprecated. Not implemented in this project
+- YES: Valid encoding for type, and supported in this project
+- *: Valid encoding, but not yet supported in this project
+- **: Deprecated encoding / type. Not implemented in this project
 
 Refer:
 - https://parquet.apache.org/docs/file-format/data-pages/encodings/
 - 
+
+### Nullable Columns, Repeated Columns, Defition Levels and Repetition Levels
+Parquet supports the following types of data:
+- Null / optional values
+- Repeated values
+- Nested objects
+
+For example the following structure is possible:
+```
+optional group person {
+    optional group address {
+        optional int32 zip;
+    }
+}
+```
+The top level persion object includes multiple / optional addresses, and each of those has an optional zip code. The data has nested objects within it. Some data storage systems will store the entire object from the root together. Parquet does not work that way. in order to allow for efficient data storage, Parquet adopts a flat columnar structure where each nested / leaf column is stored separately. Parquet then re-constitutes objects as needed.
+
+In order to do this, 2 additional pieces of information are stored
+- Definition Level: This indicates how many optional fields in the schema path are actually present. A level of 0 means the value is null at the highest possible level. A higher number means more nested fields are defined.
+- Repetition Level: This tells the reader when a new item in a repeated field (a list) begins. A level of 0 marks the start of a new record.
+
+#### Storage
+Repetition and Definition Levels are stored in each data page, before the encoded values, using RLE encoding. The order is always:
+```
+[RLE repetition levels]
+[RLE definition levels]
+[encoded values]
+```
+Each block is self-contained:
+- The RLE header tells you run type + run length.
+- Bit width is determined from the schema’s max repetition/definition level.
+- The values follow immediately after.
+
+Dremel encoding is used for nested structures. Some key ideas of the Dremel encoding include:
+- Fields are stored in separate column stripes
+- Nested records are split across multiple column stripes
+- Repetition levels indicate at what repeated field a value appears
+- Definition levels indicate what level of nesting a value is defined for
+
+The dremel paper can be found here: https://static.googleusercontent.com/media/research.google.com/en//pubs/archive/36632.pdf
+An example can be found here: https://github.com/julienledem/redelm/wiki/The-striping-and-assembly-algorithms-from-the-Dremel-paper
+
+Repetition and definition level sections are optional. They are present only when the column’s max repetition level > 0 or max definition level > 0, which is determined entirely by the schema.
+
+If a column is required and non‑repeated, then:
+- max definition level = 0
+- max repetition level = 0
+→ no levels are stored in the Data Page
+
+Levels appear in the Data Page only if the schema requires them:
+- Definition levels → appear when the field is optional OR the field is a list or repeated group
+- Repetition levels → appear when the field is repeated (lists, repeated groups)
+
+Note: groups are implicitly optional, so generate definition levels too.
+
+
+#### Step-by-Step Algorithm
+- Get the leaf column's schema path, e.g:
+
+```
+optional group person {
+    optional group address {
+        optional int32 zip;
+    }
+}
+```
+produces:
+`person → address → zip`
+
+- For each node in the path, read `SchemaElement.RepetitionType` from the metadata.
+- Count the OPTIONAL and REPEATED nodes from the root to the current element. The result is the maximum defintion level (MDL) for the current leaf column.
+
+For a given Max Definition Level of 'n', the following values have the following meanings:
+- 0: The root ancestor object (depth=0) has a null value
+- 1: The ancestor at depth=1 has a null value
+- 2: The ancestor at depth=2 has a null value
+- n-1: All parent objects are not null, but the current object is null
+- n: The current object is not null 
+
+To calculate the number of bits per definition level entry before RLE/Bit-Packing encoding, use the formula where n = Max Definition Level: `ceil(log2(n+1))`.
+
+Format of Definition Levels:
+```
+{RLE block length: 4 bytes}{run1}{run2}{run...}
+Run1 = {bit width}{header: run length}{value}
+Run2 = {bit width}{header: run length}{value}
+
 ## Reading a Parquet file
 
 
