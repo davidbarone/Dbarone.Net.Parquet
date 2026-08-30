@@ -10,6 +10,8 @@ using System.Linq;
 using Dbarone.Net.Csv;
 using Dbarone.Net.Buffers.Document;
 using Dbarone.Net.Parquet.Thrift;
+using Dbarone.Net.Parquet.Serialization;
+using Dbarone.Net.Parquet.Extensions;
 
 /// <summary>
 /// To test Parquet serialization module, we use the Parquet.NET
@@ -50,9 +52,10 @@ public class ParquetSerializerTests
         throw new Exception($"Column: {key} does not exist in Parquet.Net.");
       }
       var i = metadata.Schema.IndexOf(schemaElement);
+      var pathInSchema = metadata.GetSchemaPaths()[i];
       // Get the column chunk for the schema element
-      var chunk_idx = new FileMetaDataHelper(metadata).SchemaElementToColumnChunkIndex(schemaElement.Name);
-      var parquetNetEncodings = metadata.RowGroups[0].Columns[chunk_idx].Metadata.Encodings;
+      var chunk_idx = metadata.GetColumnChunkIndex(pathInSchema);
+      var parquetNetEncodings = metadata.RowGroups[0].Columns[chunk_idx.Value].Metadata.Encodings;
       if (parquetNetEncodings.Contains(table[key].Encoding))
       {
         // nop
@@ -77,7 +80,7 @@ public class ParquetSerializerTests
   /// <param name="data"></param>
   /// <returns></returns>
   [Theory]
-  [MemberData(nameof(GetData), "Compression:None[foo:INT32?:INT32_1_2_3_NULL_NULL_NULL_4_5:PLAIN]")]
+  [MemberData(nameof(GetData), "")]
   public async Task ParquetReadTest((string name, TestPackTable table) testCase)
   {
     var (name, table) = testCase;

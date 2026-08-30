@@ -1,9 +1,10 @@
-namespace Dbarone.Net.Parquet;
+namespace Dbarone.Net.Parquet.Serialization;
 
 using Dbarone.Net.Parquet.Thrift;
 using Dbarone.Net.Buffers;
 using Dbarone.Net.Buffers.Document;
 using Dbarone.Net.Parquet.Encoding;
+using Dbarone.Net.Parquet.Extensions;
 
 /// <summary>
 /// Parquet is an open source, column-oriented data file format designed for
@@ -71,6 +72,7 @@ public class ParquetSerializer
     // Get the schema
     // Note that schema[0] is 'root'.
     var schema = model.MetaData.Schema;
+    var paths = model.MetaData.GetSchemaPaths();
 
     // Loop through each row group
     // row groups are unioned at the end
@@ -83,50 +85,31 @@ public class ParquetSerializer
       {
         var schemaElement = schema[i];    // schema element
         var columnName = schema[i].Name;  // column name
+        var pathInSchema = paths[i];      // paths in schema
 
-        // Get the chunk index + chunk for the column
-        var chunk_idx = new FileMetaDataHelper(model.MetaData).SchemaElementToColumnChunkIndex(columnName);
-        var chunk = rowGroup.Columns[chunk_idx];
-
-        // each column chunk in a row group is divided into pages.
-        // get start and length of 1st page header for chunk
-        var start = chunk.FileOffset;
-        buffer.Position = start;
-        var ph = GetPageHeader(buffer);
-
-        // Check the type of page
-        if (ph.PageType == PageType.DICTIONARY_PAGE)
+        // Check if a leaf column
+        if (model.MetaData.IsLeafColumn(pathInSchema))
         {
-          var dict = GetDictionary(ph.DictionaryPageHeader!, schemaElement, buffer);
-          // Now we get the data for the dictionary
-          var dataPageHeader = GetPageHeader(buffer);
-          if (dataPageHeader.PageType != PageType.DATA_PAGE)
-          {
-            throw new Exception("whoops!");
-          }
+          // Get Data Page HERE
+          PageSerializer pageSer = new PageSerializer(buffer, model.MetaData, ThriftMetaDataSerialiser, paths[i]);
+          var data = pageSer.GetData();
 
-          List<TableRow> rows = new List<TableRow>();
-          foreach (var item in new RLEEncoder().Decode(buffer, chunk.Metadata.NumValues, dict))
-          {
-            TableRow tr = new TableRow(columnName, item);
-            rows.Add(tr);
-          }
-          model.Data = new Table(rows);
-        }
-        else if (ph.PageType == PageType.DATA_PAGE)
-        {
-          List<TableRow> rows = new List<TableRow>();
-          var raw = GetDataPage(buffer, ph, schemaElement);
-          foreach (var item in raw)
-          {
-            TableRow tr = new TableRow(columnName, item);
-            rows.Add(tr);
-          }
-          model.Data = new Table(rows);
+          model.Data = ResultsToTable(data, schemaElement);
         }
       }
     }
     return model;
+  }
+
+  private Table ResultsToTable(object[] results, SchemaElement schemaElement)
+  {
+    List<TableRow> rows = new List<TableRow>();
+    foreach (var item in results)
+    {
+      TableRow tr = new TableRow(schemaElement.Name, item);
+      rows.Add(tr);
+    }
+    return new Table(rows);
   }
 
   private FileMetaData GetFileMetaData(IBuffer buffer)
@@ -149,79 +132,4 @@ public class ParquetSerializer
     GenericBuffer metadataBuffer = new GenericBuffer(metadataBytes);
     return ThriftMetaDataSerialiser.GetFileMetaData(metadataBuffer);
   }
-
-  private PageHeader GetPageHeader(IBuffer buffer)
-  {
-    // Get the current position of the buffer
-    var start = buffer.Position;
-    var size = buffer.Length;
-
-    // When reading header, read in 4K limited by size remaining
-    var lengthToRead = (int)long.Min(4000, size - start);
-
-    var bytes = buffer.ReadBytes(lengthToRead);
-    GenericBuffer pageHeaderBuffer = new GenericBuffer(bytes);
-    var ph = ThriftMetaDataSerialiser.GetPageHeader(pageHeaderBuffer);
-
-    // Set the original buffer's position to the same point reached
-    buffer.Position = start + pageHeaderBuffer.Position;
-
-    return ph;
-  }
-
-  /// <summary>
-  /// Gets a dictionary page.
-  /// </summary>
-  /// <param name="buffer">The parquet buffer.</param>
-  /// <returns>Returns a dictionary page.</returns>
-  private object[] GetDictionary(DictionaryPageHeader header, SchemaElement schemaElement, IBuffer buffer)
-  {
-    if (header is null)
-    {
-      throw new Exception("Dictionary page header is null!");
-    }
-
-    // get the encoding
-    var enc = header.Encoding;
-
-    if (enc == Dbarone.Net.Parquet.Thrift.Encoding.PLAIN_DICTIONARY)
-    {
-      var encoding = new PlainEncoding(buffer);
-      var dict = encoding.Read(schemaElement, header.NumValues);
-      return dict;
-    }
-    else
-    {
-      // only PLAIN encoding currently supported for dictionaries
-      throw new Exception("Only PLAIN encoding currently supported for dictionaries.");
-    }
-  }
-
-
-  private object[] GetDataPage(IBuffer buffer, PageHeader pageHeader, SchemaElement schemaElement)
-  {
-    Dbarone.Net.Parquet.Encoding.Encoding encoding = default!;
-
-    var dataPageHeader = pageHeader.DataPageHeader;
-    if (dataPageHeader is null)
-    {
-      throw new Exception("dataPageHeader is null");
-    }
-
-    // Get the encoding in the page:
-    switch (dataPageHeader.Encoding)
-    {
-      case Thrift.Encoding.PLAIN:
-        encoding = new PlainEncoding(buffer);
-        return encoding.Read(schemaElement, dataPageHeader.NumValues);
-      case Thrift.Encoding.DELTA_BINARY_PACKED:
-        // for int32 and int64
-        encoding = new DeltaBinaryPackedEncoding(buffer);
-        return encoding.Read(schemaElement, dataPageHeader.NumValues);
-      default:
-        throw new Exception($"Encoding {dataPageHeader.Encoding} not supported.");
-    }
-  }
-
-
 }
