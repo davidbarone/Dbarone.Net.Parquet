@@ -26,6 +26,28 @@ public class PageSerializer
     this.SchemaElement = fileMetaData.GetSchemaElement(pathInSchema);
   }
 
+  private int[]? GetDefinitionLevels(PageHeader pageHeader)
+  {
+    // Check / get Repetition Levels
+    var mdl = this.FileMetaData.GetMaxDefinitionLevel(this.SchemaElement);
+    var numValues = pageHeader.DataPageHeader.NumValues;
+    int[] definitionLevels = new int[numValues];
+
+    if (mdl > 0)
+    {
+      // Calculate the bit width: bitWidth = log2(MaxDefinitionLevel + 1)
+      int bitWidth = (int)Math.Ceiling(Math.Log2(mdl + 1));
+
+      // read definition levels
+      definitionLevels = new RLEEncoding(this.Buffer, RLEEncodingDataKind.DATA_PAGE_V1_DEFINITION_LEVEL, bitWidth).ReadInt32(numValues);
+      return definitionLevels;
+    }
+    else
+    {
+      return null;
+    }
+  }
+
   private object[] GetDataPage(PageHeader pageHeader)
   {
     Dbarone.Net.Parquet.Encoding.Encoding encoding = default!;
@@ -64,7 +86,7 @@ public class PageSerializer
     }
 
     // Next get the indexes - this is always done as RLE encoding
-    var indexes = new RLEEncoding(Buffer).ReadInt32(dataPageHeader.DataPageHeader.NumValues);
+    var indexes = new RLEEncoding(Buffer, RLEEncodingDataKind.DATA_PAGE_V1_DICTIONARY_INDICES).ReadInt32(dataPageHeader.DataPageHeader.NumValues);
 
     object[] results = new object[indexes.Length];
     for (int i = 0; i < indexes.Length; i++)
@@ -95,6 +117,9 @@ public class PageSerializer
 
     // Get the page page:
     var pageHeader = GetPageHeader();
+
+    // Get DefinitionLevels
+    var definitionLevels = GetDefinitionLevels(pageHeader);
 
     object[] results = default!;
     // Check the type of page

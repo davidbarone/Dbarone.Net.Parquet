@@ -73,12 +73,17 @@ public static class FileMetaDataExtensions
     return columnChunkIndex;
   }
 
-  public static int GetMaxDefinitionLevel(FileMetaData fileMetaData, string columnName)
+  public static int GetMaxDefinitionLevel(this FileMetaData fileMetaData, SchemaElement schemaElement)
   {
-    var columns = fileMetaData.Schema;
-    var column = columns.FirstOrDefault(c => c.Name.Equals(columnName));
+    // TO DO: Need to walk from root to this element, adding up the number of optional / repeated
+    // levels. For now, just check the current element.
+    return schemaElement.RepetitionType == RepetitionType.OPTIONAL || schemaElement.RepetitionType == RepetitionType.REPEATED ? 1 : 0;
+  }
 
-    return column.RepetitionType == RepetitionType.OPTIONAL || column.RepetitionType == RepetitionType.REPEATED ? 1 : 0;
+  public static string[] GetSchemaPathForElement(this FileMetaData fileMetaData, SchemaElement schemaElement)
+  {
+    var idx = fileMetaData.Schema.IndexOf(schemaElement);
+    return fileMetaData.GetSchemaPaths()[idx];
   }
 
   /// <summary>
