@@ -30,7 +30,7 @@ public class PageSerializer
   {
     // Check / get Repetition Levels
     var mdl = this.FileMetaData.GetMaxDefinitionLevel(this.SchemaElement);
-    var numValues = pageHeader.DataPageHeader.NumValues;
+    var numValues = pageHeader.PageType == PageType.DICTIONARY_PAGE ? pageHeader.DictionaryPageHeader.NumValues : pageHeader.DataPageHeader.NumValues;
     int[] definitionLevels = new int[numValues];
 
     if (mdl > 0)
@@ -95,7 +95,7 @@ public class PageSerializer
   {
     if (definitionLevels is null)
     {
-      return pageHeader.DataPageHeader.NumValues;
+      return pageHeader.PageType == PageType.DICTIONARY_PAGE ? pageHeader.DictionaryPageHeader.NumValues : pageHeader.DataPageHeader.NumValues;
     }
     else
     {
@@ -210,7 +210,7 @@ public class PageSerializer
       }
       else
       {
-        results[i] = null;
+        results[i] = System.DBNull.Value;
       }
     }
 

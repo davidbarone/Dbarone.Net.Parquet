@@ -263,7 +263,7 @@ public class ParquetNETHelper
               dataAsList.Add(uShortValues.Cast<object>().ToList());
               break;
             case Type intType when intType == typeof(Int32):
-              int[] intValues = new int[groupReader.RowCount];
+              int?[] intValues = new int?[groupReader.RowCount];
               await groupReader.ReadAsync<int>(field, intValues);
               dataAsList.Add(intValues.Cast<object>().ToList());
               break;
