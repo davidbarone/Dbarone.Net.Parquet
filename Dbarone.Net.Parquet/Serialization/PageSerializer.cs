@@ -48,7 +48,7 @@ public class PageSerializer
     }
   }
 
-  private object[] GetDataPage(PageHeader pageHeader)
+  private object[] GetDataPage(PageHeader pageHeader, int numValues)
   {
     Dbarone.Net.Parquet.Encoding.Encoding encoding = default!;
 
@@ -63,13 +63,43 @@ public class PageSerializer
     {
       case Thrift.Encoding.PLAIN:
         encoding = new PlainEncoding(Buffer);
-        return encoding.Read(SchemaElement, dataPageHeader.NumValues);
+        return encoding.Read(SchemaElement, numValues);
       case Thrift.Encoding.DELTA_BINARY_PACKED:
         // for int32 and int64
         encoding = new DeltaBinaryPackedEncoding(Buffer);
-        return encoding.Read(SchemaElement, dataPageHeader.NumValues);
+        return encoding.Read(SchemaElement, numValues);
       default:
         throw new Exception($"Encoding {dataPageHeader.Encoding} not supported.");
+    }
+  }
+
+  /// <summary>
+  /// Gets the number of values to read from the data stream.
+  /// 
+  /// The following rules are interpreted from the specification:
+  /// - If no definition levels, then all values are non null.
+  /// In this case, all data is decoded from data stream.
+  /// - If definition levels, then the data stream only includes
+  /// non-null values. To get the number of non-null values you
+  /// need to count the number of records in the definitionLevels
+  /// where value==MaxDefinitionLevel. Note you cannot use
+  /// PageHeader.Statistics.NullCount - PageHeader.Statistics is
+  /// optional per specification. Counting DL non-null is
+  /// canonical way to go.
+  /// </summary>
+  /// <param name="definitionLevels">The definition levels</param>
+  /// <param name="maxDefinitionLevel">The maximum definition level</param>
+  /// <param name="pageHeader">The page header</param>
+  /// <returns>Returns the number of values to read from the data stream.</returns>
+  public int GetDataStreamNumValues(int[]? definitionLevels, int maxDefinitionLevel, PageHeader pageHeader)
+  {
+    if (definitionLevels is null)
+    {
+      return pageHeader.DataPageHeader.NumValues;
+    }
+    else
+    {
+      return definitionLevels.Count(l => l == maxDefinitionLevel);
     }
   }
 
@@ -119,17 +149,74 @@ public class PageSerializer
     var pageHeader = GetPageHeader();
 
     // Get DefinitionLevels
+    var mdl = this.FileMetaData.GetMaxDefinitionLevel(this.SchemaElement);
     var definitionLevels = GetDefinitionLevels(pageHeader);
+
+    // Get number of values to read from data stream
+    var numValues = GetDataStreamNumValues(definitionLevels, mdl, pageHeader);
 
     object[] results = default!;
     // Check the type of page
     if (pageHeader.PageType == PageType.DATA_PAGE)
     {
-      results = GetDataPage(pageHeader);
+      results = GetDataPage(pageHeader, numValues);
     }
     else if (pageHeader.PageType == PageType.DICTIONARY_PAGE)
     {
       results = GetDictionaryPage(pageHeader);
+    }
+
+    // Merge definition / Repetition levels with data
+    results = MergeResults(results, definitionLevels);
+
+    return results;
+  }
+
+  /// <summary>
+  /// Merges data with repetition and definition levels.
+  /// 
+  /// TODO: This is only working for basic scenarios
+  /// 
+  /// </summary>
+  /// <param name="data"></param>
+  /// <param name="definitionLevels"></param>
+  /// <returns></returns>
+  /// <exception cref="Exception"></exception>
+  private object[] MergeResults(object[] data, int[]? definitionLevels)
+  {
+    int numValues = 0;
+    object[] results = new object[numValues];
+
+    if (definitionLevels is null)
+    {
+      return data;
+    }
+    else
+    {
+      numValues = definitionLevels.Length;
+      results = new object[numValues];
+    }
+
+    int currentDataIdx = 0;
+    for (int i = 0; i < definitionLevels.Length; i++)
+    {
+      // TODO: This is approximation for now - need to handle definition levels 0..n
+      // not just 0..1
+      if (definitionLevels[i] == 1)
+      {
+        // Current object is not null
+        results[i] = data[currentDataIdx];
+        currentDataIdx++;
+      }
+      else
+      {
+        results[i] = null;
+      }
+    }
+
+    if (currentDataIdx != data.Length)
+    {
+      throw new Exception("Error merging data with definition levels");
     }
     return results;
   }
