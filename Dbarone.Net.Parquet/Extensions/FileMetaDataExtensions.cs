@@ -77,7 +77,14 @@ public static class FileMetaDataExtensions
   {
     // TO DO: Need to walk from root to this element, adding up the number of optional / repeated
     // levels. For now, just check the current element.
-    return schemaElement.RepetitionType == RepetitionType.OPTIONAL || schemaElement.RepetitionType == RepetitionType.REPEATED ? 1 : 0;
+    return schemaElement.RepetitionType == RepetitionType.OPTIONAL ? 1 : 0;
+  }
+
+  public static int GetMaxRepetitionLevel(this FileMetaData fileMetaData, SchemaElement schemaElement)
+  {
+    // TO DO: Need to walk from root to this element, adding up the number of repeated
+    // levels. For now, just check the current element.
+    return schemaElement.RepetitionType == RepetitionType.REPEATED ? 1 : 0;
   }
 
   public static string[] GetSchemaPathForElement(this FileMetaData fileMetaData, SchemaElement schemaElement)

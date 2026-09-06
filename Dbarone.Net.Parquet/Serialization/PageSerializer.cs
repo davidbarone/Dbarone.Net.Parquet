@@ -48,6 +48,28 @@ public class PageSerializer
     }
   }
 
+  private int[]? GetRepetitionLevels(PageHeader pageHeader)
+  {
+    // Check / get Repetition Levels
+    var mdl = this.FileMetaData.GetMaxRepetitionLevel(this.SchemaElement);
+    var numValues = pageHeader.PageType == PageType.DICTIONARY_PAGE ? pageHeader.DictionaryPageHeader.NumValues : pageHeader.DataPageHeader.NumValues;
+    int[] definitionLevels = new int[numValues];
+
+    if (mdl > 0)
+    {
+      // Calculate the bit width: bitWidth = log2(MaxDefinitionLevel + 1)
+      int bitWidth = (int)Math.Ceiling(Math.Log2(mdl + 1));
+
+      // read definition levels
+      definitionLevels = new RLEEncoding(this.Buffer, RLEEncodingDataKind.DATA_PAGE_V1_DEFINITION_LEVEL, bitWidth).ReadInt32(numValues);
+      return definitionLevels;
+    }
+    else
+    {
+      return null;
+    }
+  }
+
   private object[] GetDataPage(PageHeader pageHeader, int numValues)
   {
     Dbarone.Net.Parquet.Encoding.Encoding encoding = default!;
@@ -219,11 +241,6 @@ public class PageSerializer
       throw new Exception("Error merging data with definition levels");
     }
     return results;
-  }
-
-  private void GetRepetitionLevels()
-  {
-
   }
 
   private PageHeader GetPageHeader()

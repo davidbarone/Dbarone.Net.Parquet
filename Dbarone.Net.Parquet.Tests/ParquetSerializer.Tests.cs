@@ -85,7 +85,7 @@ public class ParquetSerializerTests
   {
     var (name, table) = testCase;
 
-    // Create an in-memory parquet file from the teset pack item:
+    // Create an in-memory parquet file from the test pack item:
     // for each table in the test pack, we first create an in memory parquet file
     // using Parquet.NET.
     var parquetBytes = await ParquetNETHelper.CreateFromTestPackTable(table);
