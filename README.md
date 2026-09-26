@@ -132,27 +132,33 @@ Refer:
 - 
 
 ### Dremel: Nullable Columns, Repeated Columns, Defition Levels and Repetition Levels
-Parquet allows for nested data structures. You are not limited to storing native scalar types in columns - columns can be objects with nested objects within them. You can also include arrays or lists of values within columns. These complex values can be combined to arbitrary depth levels.
+Parquet supports nested data structures. You are not limited to storing only primitive scalar types in columns - columns can be objects with nested objects within them. You can also include arrays or lists of values within columns. These complex values can be combined to arbitrary depth levels.
 
-When it comes to storing this complex data, different database engines and formats choose different ways to physically store the complex data. Parquet's approach is to use an encoding described in a research paper known as Dremel, which can be read below:
+When it comes to storing this complex data, different database engines and formats choose different ways to physically store the nested data structures. Parquet's approach is to use an encoding described in a Google research paper known as Dremel, which can be read below:
 
 https://research.google/pubs/pub36632/
 
-The Dremel paper discusses a column-striped storage. This allows for complex structures (nested objects + lists/arrays) to be split down to their basic leaf native types for internal storage. The striped data is re-assembled back to the complex data in a reverse operation. Thus there are 2 main operations:
-- Dissecting / Shredding: The act of converting complex data structures to striped columns for secondary storage
-- Assembly: The act of converting striped secondary storage data into compex data structures
+The Dremel paper discusses a column-striped storage process. This allows for nested structures (including lists and arrays) to be decomposed to primitive types for storage. The decomposed data can be re-assembled back to the original complex data in a reverse operation. There are 2 main operations discussed in the Dremel paper:
+- Dissecting / Shredding: Converting complex data structures to striped columns for secondary storage
+- Assembly: Converting striped secondary storage data back into compex data structures
 
 #### Data Model
 In order to encode using Dremel, a dataset's structure or schema must be described with various properties:
-- A field can be an atomic type or a record type.
+- A field can be an atomic/primitive type or a record type (called a group).
 - Record types can contain 1 or more fields.
-- Fields can contain an optional multiplicity label (*). These are interpreted as lists.
-- Optional fields (?) can be missing from a record. I.e. null values are allowed.
+- Each field has 3 attributes:
+  - Name
+  - Type
+  - Repetition Type
+- The repetition type can be one of the following:
+  - Required: exactly 1 occurence
+  - Optional: 0 or 1 occurence
+  - Repeated: 0 or more occurences
 
 In order to convert between a flattened / striped set of columns and a complex structure containing optional or null values, and lists at different levels, we need 2 pieces of additional information also discussed in the dremel paper: repetition levels and definition levels
 
 #### Repetition Levels
-Where a leaf column contains values for fields that are to be interpreted as lists, the values alone don't tell you which values are for which lists - all values are flattened into a single list. We need to be able to assign the individual elements into multiple lists that are assigned to parents along the object. Additional information is required to denote when to start new lists. The repetition level tells us where at what level a value is repeated.
+Where a leaf column contains values for fields that are to be interpreted as lists, the values alone don't tell you which values are for which lists - all values are flattened into a single list when stored. We need to be reassemble the flatted list of values into indidividual lists at the correct place in the data object graph. Additional information is required to denote when to start new lists. The repetition level tells us where at what level a value is repeated.
 
 To calculate the repetition level for a value in a field, we first need to calculate the max repetition level for the field. This is calculated based on the schema alone, not the values, by adding up all the repeated levels from the root down to the field. The max repetition level is therefore a number between 0 and n. interpreting repetition levels, the values mean the following:
 - 0: We haven't seen any repeated fields yet for the record.
