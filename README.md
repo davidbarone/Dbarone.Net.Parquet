@@ -17,8 +17,8 @@ Due the fundamentally different way that data is stored between row-oriented and
 | Aggregations / Analytics | Very slow - must read all columns of all rows            | Extremely fast - only reads the columns required in query          |
 | Compression              | Low                                                      | Very high - due to various encodings available on per-column basis |
 
-## Starting the Journey
-To start building a Parquet library, we need to start with as much existing documentation as possible. The following are good starting points:
+## Where to Start
+The following are good starting points for learning about Parquet:
 - https://parquet.apache.org/docs/overview/
 
 ## High Level File Format
@@ -44,7 +44,7 @@ File Metadata
 ```
 
 ## Metadata and Thrift
-Parquet files are somewhat like non-human-readable csv files on steroids. Csv files could be used for many tasks that Parquet is currently used for - however, Parquet files have at least 2 major advantages over csv:
+Parquet files can be conceptually thought of as non-human-readable csv files designed for storing large amounts of data efficiently. Csv files could be used for some tasks that Parquet is currently used for - however, Parquet files have at least 2 major advantages over csv:
 - The Parquet file format offers huge compression - this is vital when massive data volumes are required (for example in data analytics)
 - The Parquet file format is self-describing
 
@@ -61,7 +61,6 @@ Parquet contains this information and much more in sections call 'metdata'. Ther
 Both areas of metadata are encoded and serialised using a protocol called: Thrift Compact Protocol (or TCompactProtocol, or just 'Thrift').
 
 ### Thrift
-
 
 ### File Metadata
 
@@ -132,25 +131,60 @@ Refer:
 - https://parquet.apache.org/docs/file-format/data-pages/encodings/
 - 
 
-### Nullable Columns, Repeated Columns, Defition Levels and Repetition Levels
-Parquet supports the following types of data:
-- Null / optional values
-- Repeated values
-- Nested objects
+### Dremel: Nullable Columns, Repeated Columns, Defition Levels and Repetition Levels
+Parquet allows for nested data structures. You are not limited to storing native scalar types in columns - columns can be objects with nested objects within them. You can also include arrays or lists of values within columns. These complex values can be combined to arbitrary depth levels.
 
-For example the following structure is possible:
-```
-optional group person {
-    optional group address {
-        optional int32 zip;
-    }
-}
-```
-The top level persion object includes multiple / optional addresses, and each of those has an optional zip code. The data has nested objects within it. Some data storage systems will store the entire object from the root together. Parquet does not work that way. in order to allow for efficient data storage, Parquet adopts a flat columnar structure where each nested / leaf column is stored separately. Parquet then re-constitutes objects as needed.
+When it comes to storing this complex data, different database engines and formats choose different ways to physically store the complex data. Parquet's approach is to use an encoding described in a research paper known as Dremel, which can be read below:
 
-In order to do this, 2 additional pieces of information are stored
-- Definition Level: This indicates how many optional fields in the schema path are actually present. A level of 0 means the value is null at the highest possible level. A higher number means more nested fields are defined.
-- Repetition Level: This tells the reader when a new item in a repeated field (a list) begins. A level of 0 marks the start of a new record.
+https://research.google/pubs/pub36632/
+
+The Dremel paper discusses a column-striped storage. This allows for complex structures (nested objects + lists/arrays) to be split down to their basic leaf native types for internal storage. The striped data is re-assembled back to the complex data in a reverse operation. Thus there are 2 main operations:
+- Dissecting / Shredding: The act of converting complex data structures to striped columns for secondary storage
+- Assembly: The act of converting striped secondary storage data into compex data structures
+
+#### Data Model
+In order to encode using Dremel, a dataset's structure or schema must be described with various properties:
+- A field can be an atomic type or a record type.
+- Record types can contain 1 or more fields.
+- Fields can contain an optional multiplicity label (*). These are interpreted as lists.
+- Optional fields (?) can be missing from a record. I.e. null values are allowed.
+
+In order to convert between a flattened / striped set of columns and a complex structure containing optional or null values, and lists at different levels, we need 2 pieces of additional information also discussed in the dremel paper: repetition levels and definition levels
+
+#### Repetition Levels
+Where a leaf column contains values for fields that are to be interpreted as lists, the values alone don't tell you which values are for which lists - all values are flattened into a single list. We need to be able to assign the individual elements into multiple lists that are assigned to parents along the object. Additional information is required to denote when to start new lists. The repetition level tells us where at what level a value is repeated.
+
+To calculate the repetition level for a value in a field, we first need to calculate the max repetition level for the field. This is calculated based on the schema alone, not the values, by adding up all the repeated levels from the root down to the field. The max repetition level is therefore a number between 0 and n. interpreting repetition levels, the values mean the following:
+- 0: We haven't seen any repeated fields yet for the record.
+- 1: The value starts a new repetition list at the field 1 level down from root.
+- 2: The value starts a new repetition list at the field 2 levels down from root.
+- n: Only the current leaf field is repeating.
+
+Additional complexities arise with missing / null values. Sometimes records have null values for a parent of the current field, so you need to 'skip' a record entirely. Additional information is required. This is encoded in the definition levels.
+
+Essentially, the repetition level tells the reader at what level's list to add the newly viewed value:
+- 0: We are creating a new list at the root level
+- 1: We are creating a new list at level 1 from root
+- n: The value is being added to the current level
+
+#### Definition Levels
+Definition levels are defined for each value of a leaf field with a particular path 'p' (including NULL values) - the definition level is specified as the number of fields in path 'p' that are defined as optional (so could be null), which are actually not null for the current leaf record.
+
+#### General Encoding Rules
+- Only leaf columns are stored. Higher-level complex objects are 'reassembled' from the leaf columns
+- Each leaf column stores the following data:
+  - Values (nulls are not stored)
+  - Definition levels (which provide information about the nulls and where they occur in the hierarchy)
+  - Repetition levels which describe how lists repeat and when new repetition lists start
+  - If the defintion level for a record is less than the max definition / repetition level for the field the record is null
+  - if a field is required (no nulls possible), definition levels are not stored
+  - Repetition levels are also only stored if required. For example, if no definition levels are required, no repetition levels are required either.
+
+Levels appear in the data page only if the schema requires them:
+- Definition levels → appear when the field is optional OR the field is a list or repeated group
+- Repetition levels → appear when the field is repeated (lists, repeated groups)
+
+Note: groups are implicitly optional, so generate definition levels too.
 
 #### Storage
 Repetition and Definition Levels are stored in each data page, before the encoded values, using RLE encoding. The order is always:
@@ -164,30 +198,9 @@ Each block is self-contained:
 - Bit width is determined from the schema’s max repetition/definition level.
 - The values follow immediately after.
 
-Dremel encoding is used for nested structures. Some key ideas of the Dremel encoding include:
-- Fields are stored in separate column stripes
-- Nested records are split across multiple column stripes
-- Repetition levels indicate at what repeated field a value appears
-- Definition levels indicate what level of nesting a value is defined for
-
-The dremel paper can be found here: https://static.googleusercontent.com/media/research.google.com/en//pubs/archive/36632.pdf
-An example can be found here: https://github.com/julienledem/redelm/wiki/The-striping-and-assembly-algorithms-from-the-Dremel-paper
-
-Repetition and definition level sections are optional. They are present only when the column’s max repetition level > 0 or max definition level > 0, which is determined entirely by the schema.
-
-If a column is required and non‑repeated, then:
-- max definition level = 0
-- max repetition level = 0
-→ no levels are stored in the Data Page
-
-Levels appear in the Data Page only if the schema requires them:
-- Definition levels → appear when the field is optional OR the field is a list or repeated group
-- Repetition levels → appear when the field is repeated (lists, repeated groups)
-
-Note: groups are implicitly optional, so generate definition levels too.
-
-
 #### Step-by-Step Algorithm
+TBD
+
 - Get the leaf column's schema path, e.g:
 
 ```
