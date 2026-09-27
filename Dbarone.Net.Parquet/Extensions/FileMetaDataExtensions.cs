@@ -133,37 +133,13 @@ public static class FileMetaDataExtensions
       while (numChildren is not null && numChildren > 0)
       {
         fileMetaData.GetSchemaPaths(i, paths, results);
-        numChildren--;
+        //numChildren--;
       }
       return results;
     }
 
     // Return results
     return results;
-  }
-
-  private static void WalkItem(FileMetaData fileMetaData, int i = 0, Stack<string> paths = null, string[][] results = null)
-  {
-    var schema = fileMetaData.Schema;
-
-    // get current element and push on stack
-    var item = schema[i];
-    var name = schema[i].Name;
-    paths.Push(name);
-
-    // update results
-    results[i] = paths.Reverse().ToArray();
-    i++;
-
-    // Get the children for current element
-    var numChildren = item.NumChildren;
-    while (numChildren is not null && numChildren > 0)
-    {
-      WalkItem(fileMetaData, i, paths, results);
-      numChildren--;
-    }
-
-    return;
   }
 
   public static SchemaElement GetSchemaElement(this FileMetaData fileMetaData, string[] pathInSchema)
