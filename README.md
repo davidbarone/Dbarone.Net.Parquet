@@ -236,7 +236,190 @@ Format of Definition Levels:
 {RLE block length: 4 bytes}{run1}{run2}{run...}
 Run1 = {bit width}{header: run length}{value}
 Run2 = {bit width}{header: run length}{value}
-
+```
 ## Reading a Parquet file
 
 
+## Testing
+
+The testing strategy is to feed a large variety of mainly small test parquet files to validate the reader library. I've gone with the following:
+- Using Parquet.NET to generate parquet files, then validate reading using my library
+- Using Python and PyArrow to generate many basic parquet files
+- Using canonical test Parquet files from the official Parquet source repository
+
+Other test sources I may add in the future include:
+
+### Using Python + PyArrow to generate many basic test Parquet Files
+Using the approach of creating many very small Parquet test data files is desireable for several reasons:
+- Each test file can test one aspect of a Parquet file in isolation without worrying about other aspects
+- Generated files are small enough to also inspect using hex editor, making byte-level debugging much easier
+- Easy to isolate edge-case scenarios (e.g. specific encodings)
+- Generally avoid noise of large datasets
+- You can still set very low row group sizes to test page boundaries
+
+Using Python and PyArrow has several advantages
+- Python + PyArrow has huge level of support, so you can be assured that Parquet file generation will support all edge cases
+- The PyArrow library is very expressive, and enables a variety of Parquet files to be generated with minimal lines of code
+- By self-generating data files (opposed to using existing Parquet files from Apache Parquet project), any licencing restrictions are avoided
+
+The Python environment was set up outside of this project, but involved the following on a Windows setup to run + debug Python files in VSCode:
+- Go to https://www.python.org/downloads/
+- Download the Python Install Manager 
+- Run the Python Install Manager to install latest version of python (3.14.7)
+- Go to cmd line, run py to launch python. Can use same parameters as python.exe
+- Need to install the pyarrow library using: `py -m pip install pyarrow`
+- Installed the Microsoft Python extension for VSCode
+
+A python file like below can then be used to generate a number of basic test datasets:
+``` python
+import pyarrow as pa
+import pyarrow.parquet as pq
+import os
+
+OUTPUT_DIR = "parquet_test_files"
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+# 1. alltypes_plain.parquet
+def gen_alltypes_plain():
+    table = pa.table({
+        "int32": pa.array([1, 2, 3, 4], pa.int32()),
+        "int64": pa.array([10, 20, 30, 40], pa.int64()),
+        "float": pa.array([1.5, 2.1, 3.14, 2.71], pa.float32()),
+        "double": pa.array([1.1, 2.2, 3.3, 4.4], pa.float64()),
+        "bools": pa.array([True, False, False, True]),
+        "strings": pa.array(["a", "bb", "ccc", "dddd"])
+    })
+    pq.write_table(table, f"{OUTPUT_DIR}/alltypes_plain.parquet")
+
+
+# 2. alltypes_dictionary.parquet
+def gen_alltypes_dictionary():
+    dict_arr = pa.array(
+        ["a", "b", "a", "c", "b"],
+        type=pa.dictionary(pa.int32(), pa.string())
+    )
+    table = pa.table({"dict_col": dict_arr})
+    pq.write_table(table, f"{OUTPUT_DIR}/alltypes_dictionary.parquet")
+
+
+# 3. binary.parquet
+def gen_binary():
+    table = pa.table({
+        "bin": pa.array([b"a", b"", None, b"xyz"])
+    })
+    pq.write_table(table, f"{OUTPUT_DIR}/binary.parquet")
+
+
+# 4. nulls.parquet
+def gen_nulls():
+    table = pa.table({
+        "ints": pa.array([None, 1, None, 2, None, 3]),
+        "strings": pa.array([None, "x", None, "y", None, "z"])
+    })
+    pq.write_table(table, f"{OUTPUT_DIR}/nulls.parquet")
+
+
+# 5. nested_list.parquet
+def gen_nested_list():
+    list_type = pa.list_(pa.int32())
+    table = pa.table({
+        "list_col": pa.array([[1, 2], None, [3], []], type=list_type)
+    })
+    pq.write_table(table, f"{OUTPUT_DIR}/nested_list.parquet")
+
+
+# 6. nested_struct.parquet
+def gen_nested_struct():
+    struct_type = pa.struct([
+        ("a", pa.int32()),
+        ("b", pa.string())
+    ])
+    table = pa.table({
+        "struct_col": pa.array([
+            {"a": 1, "b": "x"},
+            None,
+            {"a": 3, "b": None},
+            {"a": None, "b": "y"}
+        ], type=struct_type)
+    })
+    pq.write_table(table, f"{OUTPUT_DIR}/nested_struct.parquet")
+
+
+# 7. map.parquet
+def gen_map():
+    map_type = pa.map_(pa.string(), pa.int64())
+    table = pa.table({
+        "map_col": pa.array([
+            {"a": 1, "b": 2},
+            None,
+            {"x": 10},
+            {}
+        ], type=map_type)
+    })
+    pq.write_table(table, f"{OUTPUT_DIR}/map.parquet")
+
+
+# 8. snappy.parquet
+def gen_snappy():
+    table = pa.table({
+        "ints": pa.array([1, 2, 3, 4]),
+        "strings": pa.array(["a", "b", "c", "d"])
+    })
+    pq.write_table(
+        table,
+        f"{OUTPUT_DIR}/snappy.parquet",
+        compression="snappy"
+    )
+
+
+# 9. delta_binary.parquet
+def gen_delta_binary():
+    # PyArrow automatically chooses DELTA_BINARY_PACKED for int sequences
+    table = pa.table({
+        "delta_ints": pa.array([1, 2, 3, 10, 11, 12, 100, 101])
+    })
+    pq.write_table(
+        table,
+        f"{OUTPUT_DIR}/delta_binary.parquet",
+        version="2.6",
+        data_page_size=512
+    )
+
+
+# 10. tiny_rowgroup.parquet
+def gen_tiny_rowgroup():
+    table = pa.table({
+        "ints": pa.array([1, 2, 3, 4, 5, 6]),
+        "strings": pa.array(["a", "b", "c", "d", "e", "f"])
+    })
+    pq.write_table(
+        table,
+        f"{OUTPUT_DIR}/tiny_rowgroup.parquet",
+        row_group_size=2
+    )
+
+
+def main():
+    gen_alltypes_plain()
+    gen_alltypes_dictionary()
+    gen_binary()
+    gen_nulls()
+    gen_nested_list()
+    gen_nested_struct()
+    gen_map()
+    gen_snappy()
+    gen_delta_binary()
+    gen_tiny_rowgroup()
+
+    print(f"Generated Parquet test files in: {OUTPUT_DIR}")
+
+
+if __name__ == "__main__":
+    main()
+```
+
+
+## To Do
+- Compression Algorithms
+- Encryption
+- Parquet Writer
