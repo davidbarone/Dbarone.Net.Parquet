@@ -132,7 +132,7 @@ public static class FileMetaDataExtensions
       var numChildren = item.NumChildren;
       while (numChildren is not null && numChildren > 0)
       {
-        WalkItem(fileMetaData, i, paths, results);
+        fileMetaData.GetSchemaPaths(i, paths, results);
         numChildren--;
       }
       return results;

@@ -26,7 +26,6 @@
     <ProjectReference Include="..\Dbarone.Net.Parquet\Dbarone.Net.Parquet.csproj" />
   </ItemGroup>
 
-  <!-- Test Data -->
   <ItemGroup>
     <None Include="TestData\PyArrow\alltypes_plain.parquet" CopyToOutputDirectory="Always" />
   </ItemGroup>

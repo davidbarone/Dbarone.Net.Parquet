@@ -84,28 +84,41 @@ public class Encoding : IEncoding
     var logicalType = element.LogicalType;
     var physicalType = element.Type;
 
-    if (physicalType == Type.FLOAT)
+    if (logicalType is null)
     {
-      // no need for logical type for FLOAT
-      var values = ReadFloat(numValues);
-      return values.Cast<object>().ToArray();
-    }
-    else if (physicalType == Type.DOUBLE)
-    {
-      // no need for logical type for DOUBLE
-      var values = ReadDouble(numValues);
-      return values.Cast<object>().ToArray();
-    }
-    else if (physicalType == Type.BOOLEAN)
-    {
-      var values = ReadBool(numValues);
-      return values.Cast<object>().ToArray();
-    }
-    else if (physicalType == Type.BYTE_ARRAY && logicalType is null)
-    {
-      // BYTE_ARRAY
-      var values = ReadByteArray(numValues);
-      return values.Cast<object>().ToArray();
+      if (physicalType == Type.FLOAT)
+      {
+        // no need for logical type for FLOAT
+        var values = ReadFloat(numValues);
+        return values.Cast<object>().ToArray();
+      }
+      else if (physicalType == Type.DOUBLE)
+      {
+        // no need for logical type for DOUBLE
+        var values = ReadDouble(numValues);
+        return values.Cast<object>().ToArray();
+      }
+      else if (physicalType == Type.BOOLEAN)
+      {
+        var values = ReadBool(numValues);
+        return values.Cast<object>().ToArray();
+      }
+      else if (physicalType == Type.BYTE_ARRAY)
+      {
+        // BYTE_ARRAY
+        var values = ReadByteArray(numValues);
+        return values.Cast<object>().ToArray();
+      }
+      else if (physicalType == Thrift.Type.INT32)
+      {
+        // Int32
+        var values = ReadInt32(numValues);
+        return values.Cast<object>().ToArray();
+      }
+      else
+      {
+        throw new Exception($"Unable to read physical type: {physicalType}");
+      }
     }
     else if (logicalType.STRING is not null)
     {

@@ -25,5 +25,4 @@ public class ParquetSerializerTests
     var bytes = GetFile("alltypes_plain.parquet");
     var parquet = new ParquetSerializer().Read(bytes);
   }
-
 }
