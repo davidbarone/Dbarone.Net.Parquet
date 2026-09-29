@@ -35,4 +35,21 @@ public class ParquetSerializerTests
 
     Assert.Equal(expected, parquet.Data.ToDictionaryEnumerable(), new DictionaryComparer());
   }
+
+  [Fact]
+  public void alltypes_dictionary()
+  {
+    var bytes = GetFile("alltypes_dictionary.parquet");
+    var parquet = new ParquetSerializer().Read(bytes);
+
+    List<Dictionary<string, object?>> expected = [
+      new() { ["dict_col"]="a" },
+      new() { ["dict_col"]="b" },
+      new() { ["dict_col"]="a" },
+      new() { ["dict_col"]="c" },
+      new() { ["dict_col"]="b" }
+    ];
+
+    Assert.Equal(expected, parquet.Data.ToDictionaryEnumerable(), new DictionaryComparer());
+  }
 }
