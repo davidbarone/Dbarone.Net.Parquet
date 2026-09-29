@@ -121,7 +121,7 @@ public static class FileMetaDataExtensions
 
       // get current element and push on stack
       var item = schema[i];
-      var name = schema[i].Name;
+      var name = item.Name;
       paths.Push(name);
 
       // update results
@@ -130,11 +130,11 @@ public static class FileMetaDataExtensions
 
       // Get the children for current element
       var numChildren = item.NumChildren;
-      while (numChildren is not null && numChildren > 0)
+      for (int j = 0; j < numChildren; j++)
       {
-        fileMetaData.GetSchemaPaths(i, paths, results);
-        //numChildren--;
+        fileMetaData.GetSchemaPaths(i + j, paths, results);
       }
+      paths.Pop();
       return results;
     }
 

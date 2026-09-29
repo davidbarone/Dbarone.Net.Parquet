@@ -115,6 +115,11 @@ public class Encoding : IEncoding
         var values = ReadInt32(numValues);
         return values.Cast<object>().ToArray();
       }
+      else if (physicalType == Thrift.Type.INT64)
+      {
+        var values = ReadInt64(numValues);
+        return values.Cast<object>().ToArray();
+      }
       else
       {
         throw new Exception($"Unable to read physical type: {physicalType}");
