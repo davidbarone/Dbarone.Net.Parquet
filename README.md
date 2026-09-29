@@ -281,15 +281,26 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # 1. alltypes_plain.parquet
 def gen_alltypes_plain():
-    table = pa.table({
-        "int32": pa.array([1, 2, 3, 4], pa.int32()),
-        "int64": pa.array([10, 20, 30, 40], pa.int64()),
-        "float": pa.array([1.5, 2.1, 3.14, 2.71], pa.float32()),
-        "double": pa.array([1.1, 2.2, 3.3, 4.4], pa.float64()),
-        "bools": pa.array([True, False, False, True]),
-        "strings": pa.array(["a", "bb", "ccc", "dddd"])
-    })
-    pq.write_table(table, f"{OUTPUT_DIR}/alltypes_plain.parquet")
+
+    schema = pa.schema([
+        pa.field("int32", pa.int32(), nullable=False),
+        pa.field("int64", pa.int64(), nullable=False),
+        pa.field("float", pa.float32(), nullable=False),
+        pa.field("double", pa.float64(), nullable=False),
+        pa.field("bool", pa.bool_(), nullable=False),
+        pa.field("string", pa.string(), nullable=False)
+    ])
+
+    table = pa.Table.from_arrays([
+        pa.array([1, 2, 3, 4], pa.int32()),
+        pa.array([10, 20, 30, 40], pa.int64()),
+        pa.array([1.5, 2.1, 3.14, 2.71], pa.float32()),
+        pa.array([1.1, 2.2, 3.3, 4.4], pa.float64()),
+        pa.array([True, False, False, True]),
+        pa.array(["a", "bb", "ccc", "dddd"])
+    ], schema = schema)
+
+    pq.write_table(table, f"{OUTPUT_DIR}/alltypes_plain.parquet", use_dictionary=False, compression=None)
 
 
 # 2. alltypes_dictionary.parquet

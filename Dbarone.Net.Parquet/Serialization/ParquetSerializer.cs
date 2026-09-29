@@ -94,22 +94,56 @@ public class ParquetSerializer
           PageSerializer pageSer = new PageSerializer(buffer, model.MetaData, ThriftMetaDataSerialiser, paths[i]);
           var data = pageSer.GetData();
 
-          model.Data = ResultsToTable(data, schemaElement);
+          model.Data = ResultsToTable(data, schemaElement, model.Data);
         }
       }
     }
     return model;
   }
 
-  private Table ResultsToTable(object[] results, SchemaElement schemaElement)
+  /// <summary>
+  /// Converts a SchemaElement + array of values into a single-column table,
+  /// or appends the column to an existing Table object.
+  /// </summary>
+  /// <param name="results"></param>
+  /// <param name="schemaElement"></param>
+  /// <param name="existingTable"></param>
+  /// <returns></returns>
+  private Table ResultsToTable(object[] results, SchemaElement schemaElement, Table existingTable)
   {
     List<TableRow> rows = new List<TableRow>();
-    foreach (var item in results)
+    var rowCount = results.Count();
+
+    // if appending column to existing table, make sure row counts are the same
+    if (existingTable is not null && existingTable.Count() != results.Count())
     {
-      TableRow tr = new TableRow(schemaElement.Name, item);
-      rows.Add(tr);
+      throw new Exception("Error in ResultsToTable. Row mismatch.");
     }
-    return new Table(rows);
+
+    for (int i = 0; i < rowCount; i++)
+    {
+      if (existingTable is null)
+      {
+        // First column being added to table, just add all rows as single-column rows
+        TableRow tr = new TableRow(schemaElement.Name, results[i]);
+        rows.Add(tr);
+      }
+      else
+      {
+        // update existing row
+        var existingRow = existingTable[i];
+        existingRow[schemaElement.Name] = new TableCell(results[i]);
+
+      }
+    }
+    if (existingTable is null)
+    {
+      return new Table(rows);
+    }
+    else
+    {
+      return existingTable;
+    }
   }
 
   private FileMetaData GetFileMetaData(IBuffer buffer)
