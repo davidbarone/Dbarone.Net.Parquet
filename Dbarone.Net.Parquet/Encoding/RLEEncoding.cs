@@ -193,7 +193,6 @@ public class RLEEncoding : Encoding
           runLength--;
         }
       }
-      return results;
     }
     return results;
   }

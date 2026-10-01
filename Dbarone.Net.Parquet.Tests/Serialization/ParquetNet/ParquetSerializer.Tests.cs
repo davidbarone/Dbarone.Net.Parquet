@@ -80,7 +80,7 @@ public class ParquetSerializerTests
   /// <param name="data"></param>
   /// <returns></returns>
   [Theory]
-  [MemberData(nameof(GetData), "Compression:None[foo:STRING:STR_ABCABCABC:RLE_DICTIONARY]")]
+  [MemberData(nameof(GetData), "")]
   public async Task ParquetReadTest((string name, TestPackTable table) testCase)
   {
     var (name, table) = testCase;
