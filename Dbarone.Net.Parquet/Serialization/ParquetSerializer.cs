@@ -91,8 +91,8 @@ public class ParquetSerializer
         if (model.MetaData.IsLeafColumn(pathInSchema))
         {
           // Get Data Page HERE
-          PageSerializer pageSer = new PageSerializer(buffer, model.MetaData, ThriftMetaDataSerialiser, paths[i]);
-          var data = pageSer.GetData();
+          IChunkSerializer chunkSer = new ChunkSerializer(buffer, model.MetaData, ThriftMetaDataSerialiser, paths[i]);
+          var data = chunkSer.GetData();
 
           model.Data = ResultsToTable(data, schemaElement, model.Data);
         }

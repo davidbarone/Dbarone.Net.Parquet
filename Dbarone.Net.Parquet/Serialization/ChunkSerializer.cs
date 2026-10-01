@@ -7,9 +7,9 @@ using Dbarone.Net.Buffers.Document;
 using Dbarone.Net.Parquet.Extensions;
 
 /// <summary>
-/// Base class to serialize and deserialize a page within a column chunk.
+/// Base class to serialize and deserialize a column chunk.
 /// </summary>
-public class PageSerializer
+public class ChunkSerializer : IChunkSerializer
 {
   private IBuffer Buffer { get; set; }
   private FileMetaData FileMetaData { get; set; }
@@ -17,13 +17,87 @@ public class PageSerializer
   private string[] PathInSchema { get; set; }
   private SchemaElement SchemaElement { get; set; }
 
-  public PageSerializer(IBuffer buffer, FileMetaData fileMetaData, ThriftMetaDataSerializer thriftMetaDataSerializer, string[] pathInSchema)
+  public ChunkSerializer(IBuffer buffer, FileMetaData fileMetaData, ThriftMetaDataSerializer thriftMetaDataSerializer, string[] pathInSchema)
   {
     this.Buffer = buffer;
     this.FileMetaData = fileMetaData;
     this.ThriftMetaDataSerializer = thriftMetaDataSerializer;
     this.PathInSchema = pathInSchema;
     this.SchemaElement = fileMetaData.GetSchemaElement(pathInSchema);
+  }
+
+  #region Public Methods
+
+  /// <summary>
+  /// Gets the data in a chunk. A chunk can have:
+  /// - 0/1 dictionary pages
+  /// - 1 or more data pages
+  /// - 0 or more index pages
+  /// 
+  /// The order of pages is not specified in the Parquet specification.
+  /// A page is the smallest unit of encoding and compression.
+  /// Pages can be in any order within a chunk.
+  /// </summary>
+  /// <returns></returns>
+  public object[] GetData()
+  {
+    // Get the chunk index + chunk for the column
+    var chunk_idx = this.FileMetaData.GetColumnChunkIndex(PathInSchema);
+    if (chunk_idx is null)
+    {
+      throw new Exception("Cannot get data for non-leaf column.");
+    }
+
+    // Set the buffer position to start of the column chunk.
+    var chunk = this.FileMetaData.RowGroups[0].Columns[chunk_idx.Value];
+
+    // Does chunk contain a dictionary page? (a column chunk can have 0/1 dictionary pages)
+    // We define the presence of a ditionary page if Metadata.DictionaryPageOffset is set.
+    object[]? dict = null;
+    if (chunk.Metadata.DictionaryPageOffset is not null)
+    {
+      dict = GetDictionaryPage(chunk.Metadata);
+    }
+
+    // Get the data (a column chunk has 1 or more data pages, so the DataPageOffset MUST be set)
+    object[] data = GetDataPage(chunk.Metadata);
+
+    // If dictionary used, perform lookups:
+    if (dict is not null)
+    {
+      object[] results = new object[data.Length];
+      for (int i = 0; i < data.Length; i++)
+      {
+        int index = (int)data[i];
+        results[i] = dict[index];
+      }
+      data = results;
+    }
+
+    return data;
+  }
+
+  #endregion
+
+  #region Private Methods
+
+  private PageHeader GetPageHeader()
+  {
+    // Get the current position of the buffer
+    var start = Buffer.Position;
+    var size = Buffer.Length;
+
+    // When reading header, read in 4K limited by size remaining
+    var lengthToRead = (int)long.Min(4000, size - start);
+
+    var bytes = Buffer.ReadBytes(lengthToRead);
+    GenericBuffer pageHeaderBuffer = new GenericBuffer(bytes);
+    var ph = ThriftMetaDataSerializer.GetPageHeader(pageHeaderBuffer);
+
+    // Set the original buffer's position to the same point reached
+    Buffer.Position = start + pageHeaderBuffer.Position;
+
+    return ph;
   }
 
   private int[]? GetDefinitionLevels(PageHeader pageHeader)
@@ -70,29 +144,95 @@ public class PageSerializer
     }
   }
 
-  private object[] GetDataPage(PageHeader pageHeader, int numValues)
+  private object[] GetDictionaryPage(ColumnMetaData metadata)
   {
+    // Get header
+    if (metadata.DictionaryPageOffset.HasValue)
+    {
+      var offset = metadata.DictionaryPageOffset.Value;
+      this.Buffer.Position = offset;
+    }
+    else
+    {
+      throw new Exception("Expecting DictionaryPageOffset to be set.");
+    }
+
+    // Get the page page:
+    var pageHeader = GetPageHeader();
+
+    // The page header MUST have a DictionaryPageHeader if a dictionary page.
+    var dictionaryPageHeader = pageHeader.DictionaryPageHeader;
+    if (dictionaryPageHeader is null)
+    {
+      throw new Exception("Expected dictionary page header here!");
+    }
+
+    // get the encoding
+    var enc = dictionaryPageHeader.Encoding;
+
+    if (enc == Dbarone.Net.Parquet.Thrift.Encoding.PLAIN)
+    {
+      var encoding = new PlainEncoding(Buffer);
+      var dict = encoding.Read(SchemaElement, dictionaryPageHeader.NumValues);
+      return dict;
+    }
+    else
+    {
+      // only PLAIN encoding currently supported for dictionaries
+      throw new Exception("Only PLAIN encoding currently supported for dictionaries.");
+    }
+  }
+
+  private object[] GetDataPage(ColumnMetaData metadata)
+  {
+    var offset = metadata.DataPageOffset;
+    this.Buffer.Position = offset;
+
+    // Get the page header:
+    var pageHeader = GetPageHeader();
+
     Dbarone.Net.Parquet.Encoding.Encoding encoding = default!;
 
     var dataPageHeader = pageHeader.DataPageHeader;
     if (dataPageHeader is null)
     {
-      throw new Exception("dataPageHeader is null");
+      throw new Exception("GetDataPage requires a DataPageHeader to be set to non-null value");
     }
 
-    // Get the encoding in the page:
+    // A data page can optionally have definition levels set
+    // Get DefinitionLevels
+    var mdl = this.FileMetaData.GetMaxDefinitionLevel(this.SchemaElement);
+    var definitionLevels = GetDefinitionLevels(pageHeader);
+
+    // Get the number of data values to read. This depends on the definition levels
+    // as only non-null values are stored in a data page.
+    var numValues = GetDataStreamNumValues(definitionLevels, mdl, pageHeader);
+
+    // Get the data in the page:
+    object[]? data = null;
     switch (dataPageHeader.Encoding)
     {
       case Thrift.Encoding.PLAIN:
         encoding = new PlainEncoding(Buffer);
-        return encoding.Read(SchemaElement, numValues);
+        data = encoding.Read(SchemaElement, numValues);
+        break;
       case Thrift.Encoding.DELTA_BINARY_PACKED:
         // for int32 and int64
         encoding = new DeltaBinaryPackedEncoding(Buffer);
-        return encoding.Read(SchemaElement, numValues);
+        data = encoding.Read(SchemaElement, numValues);
+        break;
+      case Thrift.Encoding.RLE_DICTIONARY:
+        encoding = new RLEEncoding(Buffer, RLEEncodingDataKind.DATA_PAGE_V1_DICTIONARY_INDICES);
+        data = encoding.ReadInt32(numValues).Select(i => (object)i).ToArray();
+        break;
       default:
         throw new Exception($"Encoding {dataPageHeader.Encoding} not supported.");
     }
+
+    // Merge definition / Repetition levels with data
+    data = MergeResults(data, definitionLevels);
+
+    return data;
   }
 
   /// <summary>
@@ -123,75 +263,6 @@ public class PageSerializer
     {
       return definitionLevels.Count(l => l == maxDefinitionLevel);
     }
-  }
-
-  public object[] GetDictionaryPage(PageHeader pageHeader)
-  {
-    // First page is the dictionary page
-    var dict = GetDictionary(pageHeader);
-
-    // Next page is the RLE encoding using the dictionary
-    var dataPageHeader = GetPageHeader();
-    if (dataPageHeader.PageType != PageType.DATA_PAGE)
-    {
-      throw new Exception("Expecting page type DATA_PAGE here");
-    }
-
-    // Next get the indexes - this is always done as RLE encoding
-    var indexes = new RLEEncoding(Buffer, RLEEncodingDataKind.DATA_PAGE_V1_DICTIONARY_INDICES).ReadInt32(dataPageHeader.DataPageHeader.NumValues);
-
-    object[] results = new object[indexes.Length];
-    for (int i = 0; i < indexes.Length; i++)
-    {
-      results[i] = dict[indexes[i]];
-    }
-
-    return results;
-  }
-
-  /// <summary>
-  /// Gets the data in the page
-  /// </summary>
-  /// <returns></returns>
-  public object[] GetData()
-  {
-    // Get the chunk index + chunk for the column
-    var chunk_idx = this.FileMetaData.GetColumnChunkIndex(PathInSchema);
-    if (chunk_idx is null)
-    {
-      throw new Exception("Cannot get data for non-leaf column.");
-    }
-
-    // Set the buffer position to start of the column chunk.
-    var chunk = this.FileMetaData.RowGroups[0].Columns[chunk_idx.Value];
-    var offset = chunk.Metadata.DataPageOffset;
-    this.Buffer.Position = offset;
-
-    // Get the page page:
-    var pageHeader = GetPageHeader();
-
-    // Get DefinitionLevels
-    var mdl = this.FileMetaData.GetMaxDefinitionLevel(this.SchemaElement);
-    var definitionLevels = GetDefinitionLevels(pageHeader);
-
-    // Get number of values to read from data stream
-    var numValues = GetDataStreamNumValues(definitionLevels, mdl, pageHeader);
-
-    object[] results = default!;
-    // Check the type of page
-    if (pageHeader.PageType == PageType.DATA_PAGE)
-    {
-      results = GetDataPage(pageHeader, numValues);
-    }
-    else if (pageHeader.PageType == PageType.DICTIONARY_PAGE)
-    {
-      results = GetDictionaryPage(pageHeader);
-    }
-
-    // Merge definition / Repetition levels with data
-    results = MergeResults(results, definitionLevels);
-
-    return results;
   }
 
   /// <summary>
@@ -243,47 +314,5 @@ public class PageSerializer
     return results;
   }
 
-  private PageHeader GetPageHeader()
-  {
-    // Get the current position of the buffer
-    var start = Buffer.Position;
-    var size = Buffer.Length;
-
-    // When reading header, read in 4K limited by size remaining
-    var lengthToRead = (int)long.Min(4000, size - start);
-
-    var bytes = Buffer.ReadBytes(lengthToRead);
-    GenericBuffer pageHeaderBuffer = new GenericBuffer(bytes);
-    var ph = ThriftMetaDataSerializer.GetPageHeader(pageHeaderBuffer);
-
-    // Set the original buffer's position to the same point reached
-    Buffer.Position = start + pageHeaderBuffer.Position;
-
-    return ph;
-  }
-
-  private object[] GetDictionary(PageHeader pageHeader)
-  {
-    var dictionaryPageHeader = pageHeader.DictionaryPageHeader;
-    if (dictionaryPageHeader is null)
-    {
-      throw new Exception("Expected dictionary page header here!");
-    }
-
-    // get the encoding
-    var enc = dictionaryPageHeader.Encoding;
-
-    if (enc == Dbarone.Net.Parquet.Thrift.Encoding.PLAIN_DICTIONARY)
-    {
-      var encoding = new PlainEncoding(Buffer);
-      var dict = encoding.Read(SchemaElement, dictionaryPageHeader.NumValues);
-      return dict;
-    }
-    else
-    {
-      // only PLAIN encoding currently supported for dictionaries
-      throw new Exception("Only PLAIN encoding currently supported for dictionaries.");
-    }
-  }
-
+  #endregion
 }

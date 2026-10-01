@@ -14,6 +14,8 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <!-- Line below added to fix C# Dev Kit issue loading Dbarone.Net.Buffers as project reference (see above) -->
+    <CompileUsingReferenceAssemblies Condition="'$(DesignTimeBuild)' == 'true'">false</CompileUsingReferenceAssemblies>
   </PropertyGroup>
 
 </Project>

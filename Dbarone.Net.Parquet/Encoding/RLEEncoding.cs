@@ -151,28 +151,49 @@ public class RLEEncoding : Encoding
 
       if (isBitPackedRun)
       {
-        throw new Exception("Bit-packed-runs not currently supported");
-      }
+        // bit packed run
+        // always bit-pack a multiple of 8 values at a time, so scaled number
+        // stored is run length / 8.
+        // Additional values are padded.
+        ulong scaledRunLength = runLength >> 1;
+        runLength = scaledRunLength * 8;
+        var bpb = Buffer.GetBitPackedBuffer(BitOrder.LSB);
 
-      // alternative is rle-run.
-      runLength = runLength >> 1;
+        // read runLength items (rounded up to multiples of 8)
+        while (runLength > 0)
+        {
+          // We only store values up to numValues
+          if (processed < numValues)
+          {
+            results[processed] = (int)bpb.ReadBits(this.BitWidth.Value);
+          }
+          processed++;
+          runLength--;
+        }
+      }
+      else
+      {
+        // alternative is rle-run.
+        runLength = runLength >> 1;
 
-      // Get value:
-      var byteSizePerValue = (this.BitWidth / 8) + 1;
-      int index = 0;
-      var j = 0;
-      while (j < byteSizePerValue)
-      {
-        index = index + (Buffer.ReadBytes(1)[0] * (1 >> (8 * j)));
-        j++;
+        // Get value:
+        var byteSizePerValue = (this.BitWidth / 8) + 1;
+        int index = 0;
+        var j = 0;
+        while (j < byteSizePerValue)
+        {
+          index = index + (Buffer.ReadBytes(1)[0] * (1 >> (8 * j)));
+          j++;
+        }
+        // return the element
+        while (runLength > 0)
+        {
+          results[processed] = index;
+          processed++;
+          runLength--;
+        }
       }
-      // return the element
-      while (runLength > 0)
-      {
-        results[processed] = index;
-        processed++;
-        runLength--;
-      }
+      return results;
     }
     return results;
   }
