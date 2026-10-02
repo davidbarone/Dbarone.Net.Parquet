@@ -30,6 +30,7 @@
   <ItemGroup>
     <None Include="TestData\PyArrow\alltypes_plain.parquet" CopyToOutputDirectory="Always" />
     <None Include="TestData\PyArrow\alltypes_dictionary.parquet" CopyToOutputDirectory="Always" />
+    <None Include="TestData\PyArrow\binary.parquet" CopyToOutputDirectory="Always" />
   </ItemGroup>
 
 </Project>

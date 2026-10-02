@@ -52,4 +52,20 @@ public class ParquetSerializerTests
 
     Assert.Equal(expected, parquet.Data.ToDictionaryEnumerable(), new DictionaryComparer());
   }
+
+  [Fact]
+  public void binary()
+  {
+    var bytes = GetFile("binary.parquet");
+    var parquet = new ParquetSerializer().Read(bytes);
+
+    List<Dictionary<string, object?>> expected = [
+      new() { ["bin_col"] = System.Text.Encoding.UTF8.GetBytes("a") },
+      new() { ["bin_col"] = System.Text.Encoding.UTF8.GetBytes("") },
+      new() { ["bin_col"] = System.Text.Encoding.UTF8.GetBytes("c") },
+      new() { ["bin_col"] = System.Text.Encoding.UTF8.GetBytes("xyz") }
+    ];
+
+    Assert.Equal(expected, parquet.Data.ToDictionaryEnumerable(), new DictionaryComparer());
+  }
 }
