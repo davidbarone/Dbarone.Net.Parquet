@@ -43,6 +43,16 @@ File Metadata
 4-byte magic number "PAR1"
 ```
 
+Some details about the parquet file structure:
+- Parquet files contain structured data. A parquet file contains a schema which describes the column layout (names, types etc). All rows in a Parquet file must adhere to the same schema.
+- A Parquet file splits rows into row groups. A row group is a horizontal partitioning of the data. For example, if the file contains 1 million rows, they may be splits across multiple row groups (for example 10 row groups each with 100,000 rows). Splitting data into row groups allows for parallelism.
+- Within a row group, each column's data is stored in a single column chunk. A column chunk only stores a single column's values. Splitting the data into chunks allows readers to completely bypass columns that are not required in a query.
+- A chunk is made up of pages. Pages can be:
+  - Data pages (v1 or v2) - a chunk can have 1 or more data pages
+  - Dictionary pages - a chunk can have 0 or 1 dictionary pages
+  - Index pages - a chunk can have 0 or more index pages
+- Pages are the smallest atomic unit of data storage. Pages are also the smallest unit where encoding + compression is applied. 
+
 ## Metadata and Thrift
 Parquet files can be conceptually thought of as non-human-readable csv files designed for storing large amounts of data efficiently. Csv files could be used for some tasks that Parquet is currently used for - however, Parquet files have at least 2 major advantages over csv:
 - The Parquet file format offers huge compression - this is vital when massive data volumes are required (for example in data analytics)

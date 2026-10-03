@@ -119,7 +119,7 @@ public class DremelTests
     {
       new Dictionary<string, object?>
       {
-          ["links"] = new List<Dictionary<string, object>>
+          ["links"] = new List<Dictionary<string, object?>>
           {
               new Dictionary<string, object?>
               {
