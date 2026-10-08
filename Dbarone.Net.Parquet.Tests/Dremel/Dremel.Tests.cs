@@ -110,8 +110,8 @@ public class DremelTests
         var root = new SchemaNode("doc", RepetitionKind.Required)
             .AddChild(
                 new SchemaNode("links", RepetitionKind.Repeated)
-                    .AddChild(new SchemaNode("url", RepetitionKind.Optional, isLeaf: true))
-                    .AddChild(new SchemaNode("language", RepetitionKind.Optional, isLeaf: true))
+                    .AddChild(new SchemaNode("url", RepetitionKind.Optional))
+                    .AddChild(new SchemaNode("language", RepetitionKind.Optional))
             );
 
         // Example records (JSON-like)

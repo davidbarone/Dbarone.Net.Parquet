@@ -61,12 +61,12 @@ public class DremelProcessor : IDremelProcessor
         // For leaf: emit null with DL < maxDL
         if (child.IsLeaf)
         {
-          buffers[child].Write(null, childDef, repLevel);
+          buffers[child].Write(null, repLevel, childDef);
         }
         else
         {
           // For struct nulls, each leaf under it will be emitted
-          EmitNullsForStruct(child, buffers, childDef, repLevel);
+          EmitNullsForStruct(child, buffers, repLevel, childDef);
         }
         continue;
       }
@@ -89,7 +89,7 @@ public class DremelProcessor : IDremelProcessor
 
           if (child.IsLeaf)
           {
-            buffers[child].Write(item, child.MaxDefinitionLevel, childRep);
+            buffers[child].Write(item, childRep, child.MaxDefinitionLevel);
           }
           else
           {
@@ -109,7 +109,7 @@ public class DremelProcessor : IDremelProcessor
         // Non-repeated field
         if (child.IsLeaf)
         {
-          buffers[child].Write(value, child.MaxDefinitionLevel, repLevel);
+          buffers[child].Write(value, repLevel, child.MaxDefinitionLevel);
         }
         else
         {
@@ -128,7 +128,7 @@ public class DremelProcessor : IDremelProcessor
   {
     foreach (var leaf in GetLeaves(structNode))
     {
-      buffers[leaf].Write(null, defLevel, repLevel);
+      buffers[leaf].Write(null, repLevel, defLevel);
     }
 
     static IEnumerable<SchemaNode> GetLeaves(SchemaNode node)

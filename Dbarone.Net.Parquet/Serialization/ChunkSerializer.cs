@@ -5,6 +5,7 @@ using Dbarone.Net.Parquet.Thrift;
 using Dbarone.Net.Parquet.Encoding;
 using Dbarone.Net.Buffers.Document;
 using Dbarone.Net.Parquet.Extensions;
+using Dbarone.Net.Parquet.Dremel;
 
 /// <summary>
 /// Base class to serialize and deserialize a column chunk.
@@ -12,18 +13,12 @@ using Dbarone.Net.Parquet.Extensions;
 public class ChunkSerializer : IChunkSerializer
 {
   private IBuffer Buffer { get; set; }
-  private FileMetaData FileMetaData { get; set; }
   private ThriftMetaDataSerializer ThriftMetaDataSerializer { get; set; }
-  private string[] PathInSchema { get; set; }
-  private SchemaElement SchemaElement { get; set; }
 
-  public ChunkSerializer(IBuffer buffer, FileMetaData fileMetaData, ThriftMetaDataSerializer thriftMetaDataSerializer, string[] pathInSchema)
+  public ChunkSerializer(IBuffer buffer, ThriftMetaDataSerializer thriftMetaDataSerializer)
   {
     this.Buffer = buffer;
-    this.FileMetaData = fileMetaData;
     this.ThriftMetaDataSerializer = thriftMetaDataSerializer;
-    this.PathInSchema = pathInSchema;
-    this.SchemaElement = fileMetaData.GetSchemaElement(pathInSchema);
   }
 
   #region Public Methods
@@ -39,42 +34,39 @@ public class ChunkSerializer : IChunkSerializer
   /// Pages can be in any order within a chunk.
   /// </summary>
   /// <returns></returns>
-  public object[] GetData()
+  public ColumnBuffer GetData(SchemaNode node, ColumnChunk chunk)
   {
-    // Get the chunk index + chunk for the column
-    var chunk_idx = this.FileMetaData.GetColumnChunkIndex(PathInSchema);
-    if (chunk_idx is null)
-    {
-      throw new Exception("Cannot get data for non-leaf column.");
-    }
-
-    // Set the buffer position to start of the column chunk.
-    var chunk = this.FileMetaData.RowGroups[0].Columns[chunk_idx.Value];
-
     // Does chunk contain a dictionary page? (a column chunk can have 0/1 dictionary pages)
     // We define the presence of a ditionary page if Metadata.DictionaryPageOffset is set.
     object[]? dict = null;
-    if (chunk.Metadata.DictionaryPageOffset is not null)
+
+    if (chunk?.Metadata?.DictionaryPageOffset is not null)
     {
-      dict = GetDictionaryPage(chunk.Metadata);
+      dict = GetDictionaryPage(node, chunk);
+    }
+
+    if (chunk?.Metadata?.DataPageOffset is null)
+    {
+      throw new Exception("Column chunk data page offset is null");
     }
 
     // Get the data (a column chunk has 1 or more data pages, so the DataPageOffset MUST be set)
-    object[] data = GetDataPage(chunk.Metadata);
+    var data = GetDataPage(node, chunk);
 
     // If dictionary used, perform lookups:
     if (dict is not null)
     {
-      object[] results = new object[data.Length];
-      for (int i = 0; i < data.Length; i++)
+      object[] results = new object[data.Values.Length];
+      for (int i = 0; i < data.Values.Length; i++)
       {
-        int index = (int)data[i];
+        int index = (int)data.Values[i];
         results[i] = dict[index];
       }
-      data = results;
+      data.Values = results;
     }
 
-    return data;
+    ColumnBuffer cb = new ColumnBuffer(node, data.Values, data.RepetitionLevels, data.DefinitionLevels);
+    return cb;
   }
 
   #endregion
@@ -100,56 +92,12 @@ public class ChunkSerializer : IChunkSerializer
     return ph;
   }
 
-  private int[]? GetDefinitionLevels(PageHeader pageHeader)
-  {
-    // Check / get Repetition Levels
-    var mdl = this.FileMetaData.GetMaxDefinitionLevel(this.SchemaElement);
-    var numValues = pageHeader.PageType == PageType.DICTIONARY_PAGE ? pageHeader.DictionaryPageHeader.NumValues : pageHeader.DataPageHeader.NumValues;
-    int[] definitionLevels = new int[numValues];
-
-    if (mdl > 0)
-    {
-      // Calculate the bit width: bitWidth = log2(MaxDefinitionLevel + 1)
-      int bitWidth = (int)Math.Ceiling(Math.Log2(mdl + 1));
-
-      // read definition levels
-      definitionLevels = new RLEEncoding(this.Buffer, RLEEncodingDataKind.DATA_PAGE_V1_DEFINITION_LEVEL, bitWidth).ReadInt32(numValues);
-      return definitionLevels;
-    }
-    else
-    {
-      return null;
-    }
-  }
-
-  private int[]? GetRepetitionLevels(PageHeader pageHeader)
-  {
-    // Check / get Repetition Levels
-    var mdl = this.FileMetaData.GetMaxRepetitionLevel(this.SchemaElement);
-    var numValues = pageHeader.PageType == PageType.DICTIONARY_PAGE ? pageHeader.DictionaryPageHeader.NumValues : pageHeader.DataPageHeader.NumValues;
-    int[] definitionLevels = new int[numValues];
-
-    if (mdl > 0)
-    {
-      // Calculate the bit width: bitWidth = log2(MaxDefinitionLevel + 1)
-      int bitWidth = (int)Math.Ceiling(Math.Log2(mdl + 1));
-
-      // read definition levels
-      definitionLevels = new RLEEncoding(this.Buffer, RLEEncodingDataKind.DATA_PAGE_V1_DEFINITION_LEVEL, bitWidth).ReadInt32(numValues);
-      return definitionLevels;
-    }
-    else
-    {
-      return null;
-    }
-  }
-
-  private object[] GetDictionaryPage(ColumnMetaData metadata)
+  private object[] GetDictionaryPage(SchemaNode node, ColumnChunk chunk)
   {
     // Get header
-    if (metadata.DictionaryPageOffset.HasValue)
+    if (chunk.Metadata.DictionaryPageOffset.HasValue)
     {
-      var offset = metadata.DictionaryPageOffset.Value;
+      var offset = chunk.Metadata.DictionaryPageOffset.Value;
       this.Buffer.Position = offset;
     }
     else
@@ -173,7 +121,7 @@ public class ChunkSerializer : IChunkSerializer
     if (enc == Dbarone.Net.Parquet.Thrift.Encoding.PLAIN)
     {
       var encoding = new PlainEncoding(Buffer);
-      var dict = encoding.Read(SchemaElement, dictionaryPageHeader.NumValues);
+      var dict = encoding.Read(node.SchemaElement, dictionaryPageHeader.NumValues);
       return dict;
     }
     else
@@ -183,9 +131,9 @@ public class ChunkSerializer : IChunkSerializer
     }
   }
 
-  private object[] GetDataPage(ColumnMetaData metadata)
+  private (object[] Values, int[] RepetitionLevels, int[] DefinitionLevels) GetDataPage(SchemaNode node, ColumnChunk chunk)
   {
-    var offset = metadata.DataPageOffset;
+    var offset = chunk.Metadata.DataPageOffset;
     this.Buffer.Position = offset;
 
     // Get the page header:
@@ -199,14 +147,15 @@ public class ChunkSerializer : IChunkSerializer
       throw new Exception("GetDataPage requires a DataPageHeader to be set to non-null value");
     }
 
+    // A data page can optionally have repetition levels set
+    var repetitionLevels = GetRepetitionLevels(node, pageHeader);
+
     // A data page can optionally have definition levels set
-    // Get DefinitionLevels
-    var mdl = this.FileMetaData.GetMaxDefinitionLevel(this.SchemaElement);
-    var definitionLevels = GetDefinitionLevels(pageHeader);
+    var definitionLevels = GetDefinitionLevels(node, pageHeader);
 
     // Get the number of data values to read. This depends on the definition levels
     // as only non-null values are stored in a data page.
-    var numValues = GetDataStreamNumValues(definitionLevels, mdl, pageHeader);
+    var numValues = GetDataStreamNumValues(definitionLevels, node.MaxDefinitionLevel, pageHeader);
 
     // Get the data in the page:
     object[]? data = null;
@@ -214,12 +163,12 @@ public class ChunkSerializer : IChunkSerializer
     {
       case Thrift.Encoding.PLAIN:
         encoding = new PlainEncoding(Buffer);
-        data = encoding.Read(SchemaElement, numValues);
+        data = encoding.Read(node.SchemaElement, numValues);
         break;
       case Thrift.Encoding.DELTA_BINARY_PACKED:
         // for int32 and int64
         encoding = new DeltaBinaryPackedEncoding(Buffer);
-        data = encoding.Read(SchemaElement, numValues);
+        data = encoding.Read(node.SchemaElement, numValues);
         break;
       case Thrift.Encoding.RLE_DICTIONARY:
         encoding = new RLEEncoding(Buffer, RLEEncodingDataKind.DATA_PAGE_V1_DICTIONARY_INDICES);
@@ -229,10 +178,51 @@ public class ChunkSerializer : IChunkSerializer
         throw new Exception($"Encoding {dataPageHeader.Encoding} not supported.");
     }
 
-    // Merge definition / Repetition levels with data
-    data = MergeResults(data, definitionLevels);
+    return (data, repetitionLevels, definitionLevels);
+  }
 
-    return data;
+  private int[] GetDefinitionLevels(SchemaNode node, PageHeader pageHeader)
+  {
+    // Check / get Repetition Levels
+    var mdl = node.MaxDefinitionLevel;
+    var numValues = pageHeader.PageType == PageType.DICTIONARY_PAGE ? pageHeader.DictionaryPageHeader.NumValues : pageHeader.DataPageHeader.NumValues;
+    int[] definitionLevels = new int[numValues];
+
+    if (mdl > 0)
+    {
+      // Calculate the bit width: bitWidth = log2(MaxDefinitionLevel + 1)
+      int bitWidth = (int)Math.Ceiling(Math.Log2(mdl + 1));
+
+      // read definition levels
+      definitionLevels = new RLEEncoding(this.Buffer, RLEEncodingDataKind.DATA_PAGE_V1_DEFINITION_LEVEL, bitWidth).ReadInt32(numValues);
+      return definitionLevels;
+    }
+    else
+    {
+      return Array.Empty<int>();
+    }
+  }
+
+  private int[]? GetRepetitionLevels(SchemaNode node, PageHeader pageHeader)
+  {
+    // Check / get Repetition Levels
+    var mrl = node.MaxRepetitionLevel;
+    var numValues = pageHeader.PageType == PageType.DICTIONARY_PAGE ? pageHeader.DictionaryPageHeader.NumValues : pageHeader.DataPageHeader.NumValues;
+    int[] repetitionLevels = new int[numValues];
+
+    if (mrl > 0)
+    {
+      // Calculate the bit width: bitWidth = log2(MaxDefinitionLevel + 1)
+      int bitWidth = (int)Math.Ceiling(Math.Log2(mrl + 1));
+
+      // read definition levels
+      repetitionLevels = new RLEEncoding(this.Buffer, RLEEncodingDataKind.DATA_PAGE_V1_DEFINITION_LEVEL, bitWidth).ReadInt32(numValues);
+      return repetitionLevels;
+    }
+    else
+    {
+      return Array.Empty<int>();
+    }
   }
 
   /// <summary>
@@ -255,7 +245,7 @@ public class ChunkSerializer : IChunkSerializer
   /// <returns>Returns the number of values to read from the data stream.</returns>
   public int GetDataStreamNumValues(int[]? definitionLevels, int maxDefinitionLevel, PageHeader pageHeader)
   {
-    if (definitionLevels is null)
+    if (definitionLevels is null || definitionLevels.Length == 0)
     {
       return pageHeader.PageType == PageType.DICTIONARY_PAGE ? pageHeader.DictionaryPageHeader.NumValues : pageHeader.DataPageHeader.NumValues;
     }
@@ -263,55 +253,6 @@ public class ChunkSerializer : IChunkSerializer
     {
       return definitionLevels.Count(l => l == maxDefinitionLevel);
     }
-  }
-
-  /// <summary>
-  /// Merges data with repetition and definition levels.
-  /// 
-  /// TODO: This is only working for basic scenarios
-  /// 
-  /// </summary>
-  /// <param name="data"></param>
-  /// <param name="definitionLevels"></param>
-  /// <returns></returns>
-  /// <exception cref="Exception"></exception>
-  private object[] MergeResults(object[] data, int[]? definitionLevels)
-  {
-    int numValues = 0;
-    object[] results = new object[numValues];
-
-    if (definitionLevels is null)
-    {
-      return data;
-    }
-    else
-    {
-      numValues = definitionLevels.Length;
-      results = new object[numValues];
-    }
-
-    int currentDataIdx = 0;
-    for (int i = 0; i < definitionLevels.Length; i++)
-    {
-      // TODO: This is approximation for now - need to handle definition levels 0..n
-      // not just 0..1
-      if (definitionLevels[i] == 1)
-      {
-        // Current object is not null
-        results[i] = data[currentDataIdx];
-        currentDataIdx++;
-      }
-      else
-      {
-        results[i] = System.DBNull.Value;
-      }
-    }
-
-    if (currentDataIdx != data.Length)
-    {
-      throw new Exception("Error merging data with definition levels");
-    }
-    return results;
   }
 
   #endregion

@@ -4,6 +4,7 @@ namespace Dbarone.Net.Parquet.Dremel;
 
 public sealed class SchemaNode
 {
+  public bool CreatedFromThrift { init; get; } = false;
   public string Name { get; }
   public RepetitionKind Repetition { get; }
   public bool IsLeaf { get; set; } = true;
@@ -14,11 +15,31 @@ public sealed class SchemaNode
   public int MaxDefinitionLevel { get; set; }
   public int MaxRepetitionLevel { get; set; }
 
-  public SchemaNode(string name, RepetitionKind repetition, bool isLeaf = true)
+  // Thrift information
+  public SchemaElement? SchemaElement { get; set; }
+  public int SchemaIndex { get; set; }
+  public int? ChunkIndex { get; set; }
+
+  public SchemaNode(string name, RepetitionKind repetition)
   {
     Name = name;
     Repetition = repetition;
-    IsLeaf = isLeaf;
+  }
+
+  internal SchemaNode(string name, RepetitionKind repetition, int schemaIndex, int? chunkIndex, SchemaElement? schemaElement = null)
+  {
+    Name = name;
+    Repetition = repetition;
+
+    // Calculate MDL and MRL for the node in isolation of its parent.
+    MaxDefinitionLevel = repetition == RepetitionKind.Optional ? 1 : 0;
+    MaxRepetitionLevel = repetition == RepetitionKind.Repeated ? 1 : 0;
+
+    SchemaIndex = schemaIndex;
+    ChunkIndex = chunkIndex;
+    SchemaElement = schemaElement;
+
+    CreatedFromThrift = true;
   }
 
   public SchemaNode AddChild(SchemaNode child)
@@ -26,6 +47,11 @@ public sealed class SchemaNode
     Children.Add(child);
     child.Parent = this;
     this.IsLeaf = false;
+
+    // When adding child to parent, add the parent's MDL/MRL to the child.
+    child.MaxDefinitionLevel = this.MaxDefinitionLevel + child.MaxDefinitionLevel;
+    child.MaxRepetitionLevel = this.MaxRepetitionLevel + child.MaxRepetitionLevel;
+
     return this;
   }
 
@@ -69,14 +95,8 @@ public sealed class SchemaNode
   /// </summary>
   /// <param name="thriftSchema">The list of SchemaElement objects in the Thrift schema.</param>
   /// <returns>Returns a root SchemaNode object</returns>
-  public static SchemaNode BuildFromThriftSchema(List<SchemaElement> thriftSchema, SchemaNode? parent = null, int currentThriftIndex = 0)
+  public static SchemaNode BuildFromThriftSchema(List<SchemaElement> thriftSchema, SchemaNode? parent = null, int currentThriftIndex = 0, int currentChunkIndex = -1)
   {
-    // Get the current element
-    if (parent is null)
-    {
-      currentThriftIndex = 0;
-    }
-
     var element = thriftSchema[currentThriftIndex];
 
     // Repetition Kind
@@ -90,31 +110,20 @@ public sealed class SchemaNode
       repetitionKind = RepetitionKind.Optional;
     }
 
-    // Calculate MDL and MRL if root
-    int MDL = 0;
-    int MRL = 0;
-    if (currentThriftIndex == 0)
+    // Is leaf?
+    var isLeaf = (element.NumChildren ?? 0) == 0;
+    if (isLeaf)
     {
-      if (element.RepetitionType == RepetitionType.OPTIONAL)
-      {
-        MDL = MDL + 1;
-      }
-      else if (element.RepetitionType == RepetitionType.REPEATED)
-      {
-        MRL = MRL + 1;
-      }
+      currentChunkIndex++;
     }
 
-    // Is leaf?
-    var isLeaf = element.NumChildren == 0;
-
     // Create new SchemaNode
-    SchemaNode node = new SchemaNode(element.Name, repetitionKind, isLeaf);
+    SchemaNode node = new SchemaNode(element.Name, repetitionKind, currentThriftIndex, currentChunkIndex, element);
 
     // Process children
     for (int i = 1; i <= element.NumChildren; i++)
     {
-      BuildFromThriftSchema(thriftSchema, node, currentThriftIndex + i);
+      BuildFromThriftSchema(thriftSchema, node, currentThriftIndex + i, currentChunkIndex);
     }
 
     // Add to parent if applicable

@@ -5,6 +5,7 @@ using Dbarone.Net.Buffers;
 using Dbarone.Net.Buffers.Document;
 using Dbarone.Net.Parquet.Encoding;
 using Dbarone.Net.Parquet.Extensions;
+using Dbarone.Net.Parquet.Dremel;
 
 /// <summary>
 /// Parquet is an open source, column-oriented data file format designed for
@@ -67,38 +68,44 @@ public class ParquetSerializer
     // 1 parquet file can only have 1 column schema - all rows must have same colums + types
 
     // To store the results
-    List<Dictionary<string, object?>> results = new List<Dictionary<string, object?>>();
-
-    // Get the schema
-    // Note that schema[0] is 'root'.
-    var schema = model.MetaData.Schema;
-    var paths = model.MetaData.GetSchemaPaths();
+    IList<Dictionary<string, object?>> results = new List<Dictionary<string, object?>>();
 
     // Loop through each row group
-    // row groups are unioned at the end
-    foreach (var rowGroup in model.MetaData.RowGroups)
+    // and get all corresponding column chunks, assembling them into a
+    // resultset using Dremel, and unioning all row chunks at the end.
+
+    // Convert schema to dremel node hierarchy
+    DremelProcessor dremel = new DremelProcessor();
+    var root = SchemaNode.BuildFromThriftSchema(model.MetaData.Schema);
+
+    for (int i = 0; i < model.MetaData.RowGroups.Count(); i++)
     {
-      // loop through each column chunk in the columns.
-      // each column chunk has same number of rows - the rows in the row group
-      var numRows = rowGroup.NumRows;
-      for (int i = 1; i < schema.Count; i++)  // ignore the 'root' schema element.
-      {
-        var schemaElement = schema[i];    // schema element
-        var columnName = schema[i].Name;  // column name
-        var pathInSchema = paths[i];      // paths in schema
-
-        // Check if a leaf column
-        if (model.MetaData.IsLeafColumn(pathInSchema))
-        {
-          // Get Data Page HERE
-          IChunkSerializer chunkSer = new ChunkSerializer(buffer, model.MetaData, ThriftMetaDataSerialiser, paths[i]);
-          var data = chunkSer.GetData();
-
-          model.Data = ResultsToTable(data, schemaElement, model.Data);
-        }
-      }
+      var rowGroup = model.MetaData.RowGroups[i];
+      var rowGroupBuffers = AssembleRowGroup(buffer, root, rowGroup.Columns);
+      model.RowGroupBuffers.Add(rowGroupBuffers);
+      var result = dremel.Assemble(root, rowGroupBuffers);
+      var rows = result.Select(r => new TableRow(r));
+      model.Data.AddRange(rows);
     }
+
+    // Assemble data using Dremel encoding
     return model;
+  }
+
+  private Dictionary<SchemaNode, ColumnBuffer> AssembleRowGroup(IBuffer buffer, SchemaNode root, List<ColumnChunk> chunks)
+  {
+    // Get leaf nodes
+    var leaves = SchemaNode.GetLeafNodes(root);
+
+    // Get data for each leaf column
+    Dictionary<SchemaNode, ColumnBuffer> results = new Dictionary<SchemaNode, ColumnBuffer>();
+    IChunkSerializer ser = new ChunkSerializer(buffer, ThriftMetaDataSerialiser);
+    foreach (var leaf in leaves)
+    {
+      var data = ser.GetData(leaf, chunks[leaf.ChunkIndex!.Value]);
+      results[leaf] = data;
+    }
+    return results;
   }
 
   /// <summary>

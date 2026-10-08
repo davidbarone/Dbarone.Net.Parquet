@@ -15,10 +15,32 @@ public sealed class ColumnBuffer
     ColumnSchema = schema;
   }
 
-  public void Write(object? value, int defLevel, int repLevel)
+  public ColumnBuffer(SchemaNode schema, object?[] values, int[] repetitionLevels, int[] definitionLevels)
+  {
+    if (values is null)
+    {
+      throw new Exception("Values must not be null");
+    }
+    ColumnSchema = schema;
+    Values = values.ToList();
+    RepetitionLevels = repetitionLevels.ToList();
+    DefinitionLevels = definitionLevels.ToList();
+
+    // need to balance the 3 arrays.
+    if (schema.MaxDefinitionLevel == 0)
+    {
+      DefinitionLevels = new List<int>(System.Linq.Enumerable.Repeat<int>(0, Values.Count()));
+    }
+    if (schema.MaxRepetitionLevel == 0)
+    {
+      RepetitionLevels = new List<int>(System.Linq.Enumerable.Repeat<int>(0, Values.Count()));
+    }
+  }
+
+  public void Write(object? value, int repLevel, int defLevel)
   {
     Values.Add(value);
-    DefinitionLevels.Add(defLevel);
     RepetitionLevels.Add(repLevel);
+    DefinitionLevels.Add(defLevel);
   }
 }
