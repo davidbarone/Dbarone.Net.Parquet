@@ -155,7 +155,7 @@ public class ChunkSerializer : IChunkSerializer
 
     // Get the number of data values to read. This depends on the definition levels
     // as only non-null values are stored in a data page.
-    var numValues = GetDataStreamNumValues(definitionLevels, node.MaxDefinitionLevel, pageHeader);
+    var numValues = GetDataStreamPhysicalValues(definitionLevels, node.MaxDefinitionLevel, repetitionLevels, node.MaxRepetitionLevel, pageHeader);
 
     // Get the data in the page:
     object[]? data = null;
@@ -229,29 +229,42 @@ public class ChunkSerializer : IChunkSerializer
   /// Gets the number of values to read from the data stream.
   /// 
   /// The following rules are interpreted from the specification:
-  /// - If no definition levels, then all values are non null.
+  /// - If no definition levels (MDL=0), then all values are non null.
   /// In this case, all data is decoded from data stream.
   /// - If definition levels, then the data stream only includes
-  /// non-null values. To get the number of non-null values you
+  /// non-null values (where DL=MDL). To get the number of non-null values you
   /// need to count the number of records in the definitionLevels
   /// where value==MaxDefinitionLevel. Note you cannot use
   /// PageHeader.Statistics.NullCount - PageHeader.Statistics is
   /// optional per specification. Counting DL non-null is
   /// canonical way to go.
+  /// 
+  /// General Rules:
+  /// 1. number of RL= number of DL = total number of RL/DL pairs
+  /// 2. number of RL/DL pairs = total number of logical values (null/not null) in column chunk
+  /// 3. number of encoded values = number of DL = MDL
+  /// 4. Page Header NumValues = number of logical values (not physical values)
   /// </summary>
   /// <param name="definitionLevels">The definition levels</param>
   /// <param name="maxDefinitionLevel">The maximum definition level</param>
   /// <param name="pageHeader">The page header</param>
   /// <returns>Returns the number of values to read from the data stream.</returns>
-  public int GetDataStreamNumValues(int[]? definitionLevels, int maxDefinitionLevel, PageHeader pageHeader)
+  public int GetDataStreamPhysicalValues(int[]? definitionLevels, int maxDefinitionLevel, int[]? repetitionLevels, int maxRepetitionLevel, PageHeader pageHeader)
   {
-    if (definitionLevels is null || definitionLevels.Length == 0)
+    if ((definitionLevels is null || definitionLevels.Length == 0) && (repetitionLevels is null || repetitionLevels.Length == 0))
     {
+      // only values stored - no nulls - number of physical rows == number of logical rows 
       return pageHeader.PageType == PageType.DICTIONARY_PAGE ? pageHeader.DictionaryPageHeader.NumValues : pageHeader.DataPageHeader.NumValues;
+    }
+    else if (definitionLevels.Length > 0)
+    {
+      // Definition levels set - number of physical rows = number of rows where DL = MDL
+      return definitionLevels.Count(l => l == maxDefinitionLevel);
     }
     else
     {
-      return definitionLevels.Count(l => l == maxDefinitionLevel);
+      // Repetition levels set, but no definition levels: COUNT(RL) should = number of physical rows
+      return pageHeader.PageType == PageType.DICTIONARY_PAGE ? pageHeader.DictionaryPageHeader.NumValues : pageHeader.DataPageHeader.NumValues;
     }
   }
 
