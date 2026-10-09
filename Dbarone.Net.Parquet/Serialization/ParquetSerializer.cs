@@ -76,7 +76,7 @@ public class ParquetSerializer
 
     // Convert schema to dremel node hierarchy
     DremelProcessor dremel = new DremelProcessor();
-    var root = SchemaNode.BuildFromThriftSchema(model.MetaData.Schema);
+    (var root, _) = SchemaNode.BuildFromThriftSchema(model.MetaData.Schema);
 
     for (int i = 0; i < model.MetaData.RowGroups.Count(); i++)
     {

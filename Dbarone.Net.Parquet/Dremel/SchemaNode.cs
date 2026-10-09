@@ -95,7 +95,7 @@ public sealed class SchemaNode
   /// </summary>
   /// <param name="thriftSchema">The list of SchemaElement objects in the Thrift schema.</param>
   /// <returns>Returns a root SchemaNode object</returns>
-  public static SchemaNode BuildFromThriftSchema(List<SchemaElement> thriftSchema, SchemaNode? parent = null, int currentThriftIndex = 0, int currentChunkIndex = -1)
+  public static (SchemaNode node, int CurrentChunkIndex) BuildFromThriftSchema(List<SchemaElement> thriftSchema, SchemaNode? parent = null, int currentThriftIndex = 0, int currentChunkIndex = -1)
   {
     var element = thriftSchema[currentThriftIndex];
 
@@ -123,7 +123,8 @@ public sealed class SchemaNode
     // Process children
     for (int i = 1; i <= element.NumChildren; i++)
     {
-      BuildFromThriftSchema(thriftSchema, node, currentThriftIndex + i, currentChunkIndex);
+      var childThriftIndex = currentThriftIndex + i;
+      (_, currentChunkIndex) = BuildFromThriftSchema(thriftSchema, node, childThriftIndex, currentChunkIndex);
     }
 
     // Add to parent if applicable
@@ -132,7 +133,7 @@ public sealed class SchemaNode
       parent.AddChild(node);
     }
 
-    return node;
+    return (node, currentChunkIndex);
   }
 
   /// <summary>
