@@ -64,7 +64,7 @@ public sealed class ColumnBuffer
       DefinitionLevels = new List<int>(System.Linq.Enumerable.Repeat<int>(0, Values.Count()));
       RepetitionLevels = new List<int>(System.Linq.Enumerable.Repeat<int>(0, Values.Count()));
     }
-    else if (DefinitionLevels.Count > 0)
+    else if (DefinitionLevels.Count() > 0 && RepetitionLevels.Count() == 0)
     {
       // pad out RL with MRL?
       RepetitionLevels = new List<int>(System.Linq.Enumerable.Repeat<int>(schema.MaxRepetitionLevel, DefinitionLevels.Count()));
@@ -78,10 +78,23 @@ public sealed class ColumnBuffer
         }
       }
     }
-    else if (RepetitionLevels.Count() > 0)
+    else if (RepetitionLevels.Count() > 0 && DefinitionLevels.Count() == 0)
     {
       // pad out DL with MDL?
       DefinitionLevels = new List<int>(System.Linq.Enumerable.Repeat<int>(schema.MaxDefinitionLevel, DefinitionLevels.Count()));
+    }
+    else
+    {
+      // repetition + definition values set
+      // pad out values with nulls
+      for (int i = 0; i < DefinitionLevels.Count(); i++)
+      {
+        if (DefinitionLevels[i] < schema.MaxDefinitionLevel)
+        {
+          // add a null
+          Values.Insert(i, null);
+        }
+      }
     }
   }
 

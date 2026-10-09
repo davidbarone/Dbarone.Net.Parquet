@@ -32,7 +32,7 @@ public sealed class SchemaNode
     Repetition = repetition;
 
     // Calculate MDL and MRL for the node in isolation of its parent.
-    MaxDefinitionLevel = repetition == RepetitionKind.Optional ? 1 : 0;
+    MaxDefinitionLevel = repetition == RepetitionKind.Required ? 0 : 1; // In dremel specification, repeated fields are nullable AND repeated
     MaxRepetitionLevel = repetition == RepetitionKind.Repeated ? 1 : 0;
 
     SchemaIndex = schemaIndex;
@@ -107,7 +107,7 @@ public sealed class SchemaNode
     }
     if (element.RepetitionType == RepetitionType.REPEATED)
     {
-      repetitionKind = RepetitionKind.Optional;
+      repetitionKind = RepetitionKind.Repeated;
     }
 
     // Is leaf?
@@ -120,17 +120,17 @@ public sealed class SchemaNode
     // Create new SchemaNode
     SchemaNode node = new SchemaNode(element.Name, repetitionKind, currentThriftIndex, currentChunkIndex, element);
 
+    // Add to parent if applicable
+    if (parent is not null)
+    {
+      parent.AddChild(node);
+    }
+
     // Process children
     for (int i = 1; i <= element.NumChildren; i++)
     {
       var childThriftIndex = currentThriftIndex + i;
       (_, currentChunkIndex) = BuildFromThriftSchema(thriftSchema, node, childThriftIndex, currentChunkIndex);
-    }
-
-    // Add to parent if applicable
-    if (parent is not null)
-    {
-      parent.AddChild(node);
     }
 
     return (node, currentChunkIndex);
