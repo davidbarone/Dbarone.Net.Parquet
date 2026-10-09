@@ -68,4 +68,22 @@ public class ParquetSerializerTests
 
     Assert.Equal(expected, parquet.Data.ToDictionaryEnumerable(), new DictionaryComparer());
   }
+
+  [Fact]
+  public void nulls()
+  {
+    var bytes = GetFile("nulls.parquet");
+    var parquet = new ParquetSerializer().Read(bytes);
+
+    List<Dictionary<string, object?>> expected = [
+      new() { ["int32"] = 1, ["string"]=DBNull.Value },
+      new() { ["int32"] = DBNull.Value, ["string"]="x" },
+      new() { ["int32"] = 2, ["string"]=DBNull.Value },
+      new() { ["int32"] = DBNull.Value, ["string"]="y" },
+      new() { ["int32"] = 3, ["string"]=DBNull.Value },
+      new() { ["int32"] = DBNull.Value, ["string"]="z" },
+    ];
+
+    Assert.Equal(expected, parquet.Data.ToDictionaryEnumerable(), new DictionaryComparer());
+  }
 }
