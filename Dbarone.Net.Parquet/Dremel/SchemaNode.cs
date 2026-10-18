@@ -1,6 +1,6 @@
-using Dbarone.Net.Parquet.Thrift;
-
 namespace Dbarone.Net.Parquet.Dremel;
+
+using Dbarone.Net.Parquet.Thrift;
 
 public sealed class SchemaNode
 {

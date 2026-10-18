@@ -247,6 +247,78 @@ Format of Definition Levels:
 Run1 = {bit width}{header: run length}{value}
 Run2 = {bit width}{header: run length}{value}
 ```
+
+#### Shredding Algorithm Pseudocode
+```
+function Shred(node, record, repLevel, defLevel):
+    if node is a leaf:
+        emit (value, repLevel, defLevel)
+        return
+
+    for each child in node.children:
+        if child is optional and record.child is null:
+            Shred(child, null, repLevel, defLevel)
+        else if child is repeated:
+            for i, element in enumerate(record.child):
+                childRep = (i == 0) ? repLevel : child.repLevel
+                childDef = defLevel + 1
+                Shred(child, element, childRep, childDef)
+        else:
+            childDef = defLevel + (child is optional ? 1 : 0)
+            Shred(child, record.child, repLevel, childDef)
+```
+Points:
+- Definition level increases when an optional or repeated field is present.
+- Repetition level increases when entering a repeated field after the first element.
+- Nulls propagate by calling Shred(child, null, repLevel, defLevel).
+
+#### Assembly Pseudocode
+```
+function Assemble(columns):
+    while all columns have more values:
+        row = new empty record
+        for each column:
+            values = []
+            while column.hasNext():
+                (v, dl, rl) = column.peek()
+                if rl == 0 and values not empty:
+                    break
+                values.append((v, dl))
+                column.advance()
+            placeValues(row, column.path, values)
+        output row
+```
+Points:
+- A row ends when RL returns to 0 for a column after at least one value.
+- placeValues walks the schema path and creates:
+  - dictionaries for structs
+  - lists for repeated fields
+  - scalars for leaves
+- DL determines whether a value is present or null.
+
+#### PlaceValues Pseudocode
+```
+function placeValues(row, path, values):
+    current = row
+    for each node in path except leaf:
+        if node is repeated:
+            ensure list exists at current[node]
+            current = last element of list
+        else:
+            ensure dict exists at current[node]
+            current = current[node]
+
+    leafNode = last node in path
+    if leafNode is repeated:
+        for (v, dl) in values:
+            if dl == leafNode.maxDL:
+                append v to current[leafNode]
+    else:
+        (v, dl) = last(values)
+        current[leafNode] = (dl == leafNode.maxDL) ? v : null
+```
+
+
 ## Reading a Parquet file
 
 
