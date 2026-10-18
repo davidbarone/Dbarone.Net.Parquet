@@ -307,7 +307,7 @@ public class DremelProcessor : IDremelProcessor
           // Non leaf - we build out object graph
           // Check if we are at the last object with values. If so,
           // bubble down the same parent to each level of objectlist
-          if (mdl > 0 && dl < mdl && dl > currentNode.MaxDefinitionLevel)
+          if (mdl > 0 && dl < mdl && dl < currentNode.MaxDefinitionLevel)
           {
             // bubble parent down
             objectList.Insert(j, parentDict);
@@ -322,8 +322,8 @@ public class DremelProcessor : IDremelProcessor
               {
                 // Create list list, add element, and add list to parent property.
                 var list = new List<object?>();
-                var dict = new Dictionary<string, object?>();
-                list.Add(dict);
+                //var dict = new Dictionary<string, object?>();
+                //list.Add(dict);
                 parentDict[currentNode.Name] = list;
                 objectList.Insert(j, list);
               }
