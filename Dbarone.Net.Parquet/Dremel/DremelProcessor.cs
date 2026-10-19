@@ -287,6 +287,14 @@ public class DremelProcessor : IDremelProcessor
           ((parentObject as List<object>).Last() as Dictionary<string, object?>) :
           (parentObject as Dictionary<string, object?>);
 
+        // Check dl to see whether nulls should be written. If so
+        // We exit the path walk early.
+        if (mdl > 0 && dl < currentNode.MaxDefinitionLevel)
+        {
+          parentDict[currentNode.Name] = null;
+          break;    // exit walk
+        }
+
         // If leaf node, we write value
         if (currentNode.IsLeaf)
         {
