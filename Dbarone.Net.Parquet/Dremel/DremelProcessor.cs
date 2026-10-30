@@ -1,4 +1,6 @@
 
+using Dbarone.Net.Buffers.Document;
+
 namespace Dbarone.Net.Parquet.Dremel;
 
 /// <summary>
@@ -231,7 +233,7 @@ public class DremelProcessor : IDremelProcessor
           IList<int> reps)
   {
     // Get all nodes from root to leaf
-    var path = leaf.GetPathFromAncestor(root);
+    var path = leaf.GetPathFromAncestor(root, true);
 
     // Define structure to hold object fragment currently active
     // at each level of the path. This object is later collapsed
