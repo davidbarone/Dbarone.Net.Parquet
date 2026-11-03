@@ -12,13 +12,17 @@
 public enum SchemaGroupType
 {
   /// <summary>
+  /// This node is not a group type.
+  /// </summary>
+  NOT_APPLICABLE,
+
+  /// <summary>
   /// The 'root' message group (the top-level schema element - this group does not appear in the final logical data schema output).
   /// - The top-level schema node.
   /// - Represented as a GROUP with repetition = None, meaning it is the schema root.
   /// - Contains all top-level fields.
   /// </summary>
   ROOT,
-
 
   /// <summary>
   /// A 'struct' like group:

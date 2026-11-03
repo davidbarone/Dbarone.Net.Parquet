@@ -6,6 +6,7 @@ namespace Dbarone.Net.Parquet.Dremel;
 public sealed class ColumnBuffer
 {
   public SchemaNode ColumnSchema { get; }
+  public LogicalPath LogicalPath { get; }
   public List<object?> Values { get; } = new();
   public List<int> DefinitionLevels { get; } = new();
   public List<int> RepetitionLevels { get; } = new();
@@ -13,6 +14,14 @@ public sealed class ColumnBuffer
   public ColumnBuffer(SchemaNode schema)
   {
     ColumnSchema = schema;
+
+    // Calculate the logical path. This is used by Dremel encoding to create the logical data model
+    // The logical path represents the actual data model path, not the Parquet schema path (which
+    // can include additional sythetic nodes).
+    var root = schema.GetRoot();
+    var parquetPath = schema.GetPathFromAncestor(root);
+    var logicalPath = new LogicalPath(parquetPath);
+    this.LogicalPath = logicalPath;
   }
 
 

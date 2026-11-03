@@ -140,6 +140,12 @@ public class DremelProcessor : IDremelProcessor
 
   #region Assemble Public Methods
 
+  /// <summary>
+  /// Uses Dremel assembly algorithm to assemble shredded leaf data into a single logical dataset.
+  /// </summary>
+  /// <param name="root">The root schema node object (which contains all child / leaf nodes too).</param>
+  /// <param name="buffers">The buffers containing the leaf physical data.</param>
+  /// <returns>The separate physical leaf datasets are assembled into a single logical dataset.</returns>
   public IList<IDictionary<string, object?>> Assemble(
       SchemaNode root,
       Dictionary<SchemaNode, ColumnBuffer> buffers)
@@ -168,12 +174,21 @@ public class DremelProcessor : IDremelProcessor
 
   #region Assemble Private Methods
 
+  /// <summary>
+  /// Assembles a single row.
+  /// 
+  /// This method consumes data from the cursors until a repetition value of 0 is encountered. This
+  /// denotes a new list at the root (i.e. new record).
+  /// </summary>
+  /// <param name="root">The root schema node object (which contains all child / leaf nodes too).</param>
+  /// <param name="cursors">Object containing all the leaf cursors.</param>
+  /// <returns>Returns 1 row of the final logical data model.</returns>
   private static IDictionary<string, object?> AssembleSingleRow(
           SchemaNode root,
           Dictionary<SchemaNode, ColumnCursor> cursors)
   {
     // intialise the root object for the row. This is a dictionary.
-    var rootObj = new Dictionary<string, object?>();
+    var row = new Dictionary<string, object?>();
 
     // process 1 column at a time
     foreach (var kvp in cursors)
@@ -207,49 +222,50 @@ public class DremelProcessor : IDremelProcessor
       }
 
       // finally place the data at the correct place in the object
-      PlaceColumnValues(root, leaf, rootObj, values, defs, reps);
+      PlaceColumnValues(cursor.Buffer.LogicalPath, row, values, defs, reps);
     }
 
-    // and return the root object.
-    return rootObj;
+    // and return the row.
+    return row;
   }
 
   /// <summary>
   /// This places values for a single column across various levels of an
-  /// object, where the root object represents 1 row of the final output.
+  /// object, where the row object represents 1 row of the final output.
+  /// 
+  /// Assumption
+  /// - n(values)==n(defs)==n(reps)
   /// </summary>
-  /// <param name="root">The root schema node.</param>
-  /// <param name="leaf">The leaf / data node.</param>
-  /// <param name="rootObj">The root object being constructed</param>
-  /// <param name="values">The values for the single root row</param>
-  /// <param name="defs">The definition levels for the single root row</param>
-  /// <param name="reps">The repetition levels for the single roow row</param>
+  /// <param name="path">The logical levels for a single leaf node of an object.</param>
+  /// <param name="row">The root object being constructed, representing a single row of the final output.</param>
+  /// <param name="values">The values for the single root row.</param>
+  /// <param name="defs">The definition levels for the single root row.</param>
+  /// <param name="reps">The repetition levels for the single roow row.</param>
   private static void PlaceColumnValues(
-          SchemaNode root,
-          SchemaNode leaf,
-          IDictionary<string, object?> rootObj,
+          LogicalPath logicalPath,
+          IDictionary<string, object?> row,
           IList<object?> values,
           IList<int> defs,
           IList<int> reps)
   {
-    // Get all nodes from root to leaf
-    var path = leaf.GetPathFromAncestor(root, true);
-
     // Define structure to hold object fragment currently active
     // at each level of the path. This object is later collapsed
     // into final object graph for the row.
-    // Entry exists for each item in the path. Each entry can be
-    // - leaf node - fragment stored is the leaf value
-    // - list node (if node repetition type = Repeated) - fragment stored is the list
-    // - Dictionary node (<> leaf) - fragment stored is the dictionary
-    // Same object can exist at multiple levels
+    // Entry exists for each item in the path. The entry depends
+    // on the logical node type at each level in path:
+    //  - STRUCT: Dictionary<string, object> representing the struct
+    //  - LIST: List<object> representing the list
+    //  - LEAF: object representing the leaf value
     List<object> objectList = new List<object>();
-    // The row's root object is 0th element:
-    objectList.Add(rootObj);
 
     // Get mdl/mrl for the leaf
-    var mdl = leaf.MaxDefinitionLevel;
-    var mrl = leaf.MaxRepetitionLevel;
+    var mdl = logicalPath.MaxDefinitionLevel;
+    var mrl = logicalPath.MaxRepetitionLevel;
+
+    // Create structure to keep track of which element within a list we are at for each repetition level
+    List<int> listIndexes = Enumerable.Repeat<int>(0, mrl).ToList();
+
+    var path = logicalPath.Path;
 
     for (int i = 0; i < defs.Count; i++)
     {
@@ -262,20 +278,22 @@ public class DremelProcessor : IDremelProcessor
       // so that new list can be created (only where not root)
       if (rl > 0 && rl < mrl)
       {
-        var pathIndex = path.FindIndex(p => p.MaxRepetitionLevel == rl);
+        var pathIndex = path.FindIndex(p => p.RepetitionLevel == rl);
         objectList.RemoveRange(pathIndex, objectList.Count() - pathIndex);
       }
 
       // We walk through each node in the path
-      // exclude root node
-      for (int j = 1; j < path.Count(); j++)
+      for (int j = 0; j < path.Count; j++)
       {
         var currentNode = path[j];
-        var parentNode = path[j - 1];
-        var parentObject = objectList[j - 1];
+        var parentNode = j == 0 ? null : path[j - 1];
 
-        // if parent is repeated + node mrl >= rl, then we add new element to parent
-        if (parentNode.Repetition == RepetitionKind.Repeated && parentNode.MaxRepetitionLevel >= rl)
+        var parentObject = j == 0 ? row : objectList[j - 1];
+        var parentDict = parentObject as Dictionary<string, object?>;
+        var parentList = parentObject as List<object?>;
+
+        // if parent is repeated (i.e. a LIST) + node mrl >= rl, then we add new element to parent
+        if (parentNode is not null && parentNode.LogicalNodeType == LogicalNodeType.LIST && parentNode.RepetitionLevel >= rl)
         {
           var dict = new Dictionary<string, object?>();
           (parentObject as List<object>).Add(dict);
@@ -291,25 +309,30 @@ public class DremelProcessor : IDremelProcessor
 
         // Check dl to see whether nulls should be written. If so
         // We exit the path walk early.
-        if (mdl > 0 && dl < currentNode.MaxDefinitionLevel)
+        if (mdl > 0 && dl < currentNode.
+        DefinitionLevel)
         {
           parentDict[currentNode.Name] = null;
           break;    // exit walk
         }
 
         // If leaf node, we write value
-        if (currentNode.IsLeaf)
+        if (currentNode.LogicalNodeType == LogicalNodeType.LEAF)
         {
-          object? leafValue = dl == leaf.MaxDefinitionLevel ? value : null;
+          object? leafValue = dl == currentNode.DefinitionLevel ? value : DBNull.Value;
 
-          // if leaf is repeated, add element to array
-          if (currentNode.Repetition == RepetitionKind.Repeated)
+          // Add the leaf to parent (which can be STRUCT, LIST, MAP)
+          if (parentNode.LogicalNodeType == LogicalNodeType.STRUCT && parentDict is not null)
           {
-            (parentObject as List<object>).Add(leafValue);
+            parentDict[currentNode.Name] = leafValue;
+          }
+          else if (parentNode.LogicalNodeType == LogicalNodeType.LIST && parentList is not null)
+          {
+            parentList.Add(leafValue);
           }
           else
           {
-            parentDict[currentNode.Name] = leafValue;
+            throw new Exception("Unable to write leaf value.");
           }
         }
         else
@@ -317,32 +340,46 @@ public class DremelProcessor : IDremelProcessor
           // Non leaf - we build out object graph
           // Check if we are at the last object with values. If so,
           // bubble down the same parent to each level of objectlist
-          if (mdl > 0 && dl < mdl && dl < currentNode.MaxDefinitionLevel)
+          if (mdl > 0 && dl < mdl && dl < currentNode.DefinitionLevel)
           {
             // bubble parent down
-            objectList.Insert(j, parentDict);
+            objectList.Insert(j, parentObject);
           }
           else
           {
             // There should be value at this level
             // Check if child object is present?
-            if (!parentDict.TryGetValue(currentNode.Name, out var childObj) || childObj is null)
+            if (parentNode is not null && parentNode.LogicalNodeType == LogicalNodeType.STRUCT && parentDict is not null && (!parentDict.TryGetValue(currentNode.Name, out var childObj) || childObj is null))
             {
-              if (currentNode.Repetition == RepetitionKind.Repeated)
+              // parent is STRUCT, and no existing property for current node.
+              // We need to set a property on parent, and add new object to object list
+              if (currentNode.LogicalNodeType == LogicalNodeType.STRUCT)
               {
-                // Create list list, add element, and add list to parent property.
-                var list = new List<object?>();
-                //var dict = new Dictionary<string, object?>();
-                //list.Add(dict);
-                parentDict[currentNode.Name] = list;
-                objectList.Insert(j, list);
-              }
-              else if (!currentNode.IsLeaf)
-              {
-                // create dict, and add to parent
                 var dict = new Dictionary<string, object?>();
                 parentDict[currentNode.Name] = dict;
                 objectList.Insert(j, dict);
+              }
+              else if (currentNode.LogicalNodeType == LogicalNodeType.LIST)
+              {
+                var list = new List<object?>();
+                parentDict[currentNode.Name] = list;
+                objectList.Insert(j, list);
+              }
+            }
+            else if (parentNode is not null && parentNode.LogicalNodeType == LogicalNodeType.LIST && parentList is not null)
+            {
+              // parent is LIST - we need to add element to parent and add new object to object list
+              if (currentNode.LogicalNodeType == LogicalNodeType.STRUCT)
+              {
+                var dict = new Dictionary<string, object?>();
+                parentList.Add(dict);
+                objectList.Insert(j, dict);
+              }
+              else if (currentNode.LogicalNodeType == LogicalNodeType.LIST)
+              {
+                var list = new List<object?>();
+                parentList.Add(list);
+                objectList.Insert(j, list);
               }
             }
           }

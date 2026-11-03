@@ -515,3 +515,66 @@ if __name__ == "__main__":
 - Compression Algorithms
 - Encryption
 - Parquet Writer
+
+
+
+
+PlaceValues algorithm
+----------------------
+
+Input:
+- logicalPath(LogicalPath) - contains all logical nodes / mdl / mrl values from root -> leaf
+- row(IDictionary<string, object?>) - the current row object - gets buil
+
+Summary
+- PlaceColumnValues is called multiple times - once for each leaf node
+- Objects are progressively built-out using the leaf data and repetition levels + definition levels
+- The row can contain any combination of:
+	- Dictionary objects
+	- List objects
+
+Algorithm
+- For the current iteration of the PlaceColumnValues method (for one leaf node)
+- Get the logical path from root to current leaf/physical node
+- Create objectList - represents 'current' active object at each level of the logical path:
+	- If logical path node = STRUCT, the current active object is the dictionary
+	- If logical path node = LIST, the current active object is the list
+	- If logical path node = LEAF, the current active object is the leaf value
+- Calculate mdl = dl for the leaf node
+- Calculate mrl = rl for the leaf node
+- Create listIndexes (List<int>) to keep track of which index in each list we are currently on.
+	- The index = rl - 1 (i.e the current list index for node with rl=1 will be stored in index = 0)
+- Loop for each value, dl, rl in the row
+	- if rl > 0 and rl < mrl (i.e. rep level signifies new list at level: 'rl':
+		- Find the logical path LIST node where node.repetitionlevel == rl
+			- remove all objects in object list AFTER this item
+			- Increment index (rl-1)
+			- Set index rl...n to 0
+	- walk for each node n in path from top->leaf
+		- Handle null / early break of path loop:
+			- if node is LIST and mdl > 0 and dl < node.containerdefinitionlevel:
+				- if listIndexes[node.rl-1] >= currentobject.length:
+					- add new null list
+				- break from the path loop (we don't go any deeper)
+			- if node is LIST and mdl > 0 and dl < node.dl
+				- if listIndexes[node.rl-1] >= currentobject.length:
+					- add new empty list
+				- break from the path loop (we don't go any deeper)
+		- Determine 'parent' object
+			- If parent is a STRUCT, the parent is a dictionary
+			- If parent is a LIST, the parent is a list
+    			- Use the listIndex to get the list nth element
+        - check actual current group exists, and if not create?
+    		- if STRUCT - try on parent accessing property
+        		- if not:
+            		- if current=STRUCT exists, create new dict + add to parent + current list element 
+            		- if current=LIST, create list + add to parent + current list element 
+    		- if LIST - check if list contains n-th element
+        		- if not:
+            		- if current=STRUCT, create new dict + add to parent + current liust element
+            		- if current=LIST, create list + add to parent + current list element
+    - If path=LEAF, then write value:
+      - if dl less MDL, write null
+      - if dl = MDL, write value
+      - if parent = struct, set property on parent
+      - if parent = list, add value to array
