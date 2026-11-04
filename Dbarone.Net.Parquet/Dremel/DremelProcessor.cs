@@ -233,6 +233,61 @@ public class DremelProcessor : IDremelProcessor
   /// This places values for a single column across various levels of an
   /// object, where the row object represents 1 row of the final output.
   /// 
+  /// Input:
+  /// - logicalPath(LogicalPath) - contains all logical nodes / mdl / mrl values from root -> leaf
+  /// - row(IDictionary<string, object?>) - the current row object - gets built in successive calls to this method
+  /// 
+  /// Summary
+  /// - PlaceColumnValues is called multiple times - once for each leaf node
+  /// - Objects are progressively built-out using the leaf data and repetition + definition levels
+  /// - The row can contain nested objects, for example:
+  ///   - Nested dictionary objects
+  ///   - Nested list objects
+  /// 
+  /// Algorithm (for the current iteration of the PlaceColumnValues method - for one leaf node):
+  /// - Get the logical path from root to current leaf / physical node
+  /// - Create structures to keep tabs of current nested objects within the path:
+  ///   - objectList: represents 'current' active object at each level of the logical path:
+  ///     - For STRUCT nodes, this is a dictionary
+  ///     - For LIST nodes, this is a list
+  ///     - for LEAF nodes, this is the actual value
+  ///   - listIndexes: keeps track of the current list index (only applies to LIST nodes)
+  ///     - listIndex size = mrl
+  ///     - listIndex[n] stores the current list index for the LIST node with rl = n + 1 
+  /// - Calculate mdl (i.e. dl for the leaf node)
+  /// - Calculate mrl (i.e. rl for the leaf node)
+  /// - Loop for each value, dl, rl in the row:
+  ///   - Test for new repetition level to start (if rl > 0 and rl < mrl):
+  ///     - Find the logical path index, i where node type = LIST, and node.rl == rl
+  ///     - Remove all items in objectList where index  > i
+  ///     - Increment listIndex[rl-1]
+  ///     - Set all elements in listIndex[rl]..listIndex[mrl-1] = 0
+  ///   - Walk logical path from head -> leaf (path loop):
+  ///     - Determine the parentObject for each current node (n):
+  ///       - if parent node (n-1) is STRUCT, parent = ((objectList[n-1) as dict)
+  ///       - if parent node (n-1) is LIST, parent = (objectList[n-1] as List)[listIndex[n-1]]
+  ///       - Check if object at current level exists:
+  ///         - if parent = STRUCT, check not null property using current object name
+  ///         - if parent = LIST, check element exists at listIndex[n] position
+  ///       - If object does not exist, create + add to parent (also test for nulls here)
+  ///         - if node.type=LIST and mdl > 0 and dl < node.cdl:
+  ///           - if listIndexes[node.rl-1] >= currentobject.length:
+  ///             - add a new null value to the LIST at currentobject
+  ///           - break
+  ///         - if node.type=LIST and mdl > 0 and dl node.dl:
+  ///           - if listIndexes[node.rl-1] >= currentobject.length:
+  ///             - add new empty list to the list at currentobject
+  ///           - break
+  ///         - Otherwise, create a non null value and continue path walk
+  ///           - If parent is STRUCT, set property
+  ///           - If Parent is LIST, add element
+  ///           - The object to create depends on current node type:
+  ///             - current node = STRUCT: create dict
+  ///             - current node = LIST: create list
+  ///             - current node = LEAF: just set / append the actual value to the parent
+  ///             - if current node.dl < mdl, write null
+  ///         - Add the created element to objectList[n] too
+  ///         
   /// Assumption
   /// - n(values)==n(defs)==n(reps)
   /// </summary>
