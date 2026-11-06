@@ -14,14 +14,7 @@ public sealed class ColumnBuffer
   public ColumnBuffer(SchemaNode schema)
   {
     ColumnSchema = schema;
-
-    // Calculate the logical path. This is used by Dremel encoding to create the logical data model
-    // The logical path represents the actual data model path, not the Parquet schema path (which
-    // can include additional sythetic nodes).
-    var root = schema.GetRoot();
-    var parquetPath = schema.GetPathFromAncestor(root);
-    var logicalPath = new LogicalPath(parquetPath);
-    this.LogicalPath = logicalPath;
+    this.LogicalPath = GetLogicalPath(schema);
   }
 
 
@@ -58,6 +51,7 @@ public sealed class ColumnBuffer
       throw new Exception("Values must not be null");
     }
     ColumnSchema = schema;
+    this.LogicalPath = GetLogicalPath(schema);
     Values = values.ToList();
     RepetitionLevels = repetitionLevels.ToList();
     DefinitionLevels = definitionLevels.ToList();
@@ -105,6 +99,24 @@ public sealed class ColumnBuffer
         }
       }
     }
+  }
+
+  /// <summary>
+  /// Calculate the logical path. This is used by Dremel encoding to create the logical data model
+  /// The logical path represents the actual data model path, not the Parquet schema path (which
+  /// can include additional sythetic nodes).
+  /// </summary>
+  /// <param name="node"></param>
+  /// <returns></returns>
+  private LogicalPath GetLogicalPath(SchemaNode node)
+  {
+    // Calculate the logical path. This is used by Dremel encoding to create the logical data model
+    // The logical path represents the actual data model path, not the Parquet schema path (which
+    // can include additional sythetic nodes).
+    var root = node.GetRoot();
+    var parquetPath = node.GetPathFromAncestor(root);
+    var logicalPath = new LogicalPath(parquetPath);
+    return logicalPath;
   }
 
   public void Write(object? value, int repLevel, int defLevel)
