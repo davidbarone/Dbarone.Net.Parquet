@@ -94,10 +94,10 @@ public class ParquetSerializerTests
     var parquet = new ParquetSerializer().Read(bytes);
 
     List<Dictionary<string, object?>> expected = [
-      new() { ["list_int32"] = new List<int>{1,2} },
+      new() { ["list_int32"] = new List<object?>{1,2} },
       new() { ["list_int32"] = DBNull.Value },
-      new() { ["list_int32"] = new List<int>{3} },
-      new() { ["list_int32"] = new List<int>{} },
+      new() { ["list_int32"] = new List<object?>{3} },
+      new() { ["list_int32"] = new List<object?>{} },
     ];
 
     Assert.Equal(expected, parquet.Data.ToDictionaryEnumerable(), new DictionaryComparer());

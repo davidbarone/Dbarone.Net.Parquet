@@ -333,19 +333,19 @@ public class DremelProcessor : IDremelProcessor
       // Test for new repetition level and reset listIndexes if a new repetition list encountered.
       // if rl < mrl and rl > 0, we clear all objectstack records after node where
       // node.MaxRepetitionLevel = rl so that new list can be created.
-      if (rl > 0 && rl < mrl)
+      if (mrl > 0 && rl < mrl)
       {
-        var pathIndex = path.FindIndex(p => p.RepetitionLevel == rl);
+        var pathIndex = path.FindIndex(p => p.RepetitionLevel >= rl);
         for (int j = pathIndex; j < pathLength; j++)
         {
-          objectList[j] = null;
-          if (j == pathIndex)
+          if (j == pathIndex && path[j].LogicalNodeType == LogicalNodeType.LIST)
           {
             listIndexes[j]++;
           }
           else
           {
             listIndexes[j] = 0;
+            objectList[j] = null;
           }
         }
       }
@@ -355,7 +355,6 @@ public class DremelProcessor : IDremelProcessor
         var pathIndex = path.FindIndex(p => p.RepetitionLevel == mrl);
         for (int j = pathIndex; j < pathLength; j++)
         {
-          objectList[j] = null;
           if (j == pathIndex)
           {
             listIndexes[j]++;
@@ -363,6 +362,7 @@ public class DremelProcessor : IDremelProcessor
           else
           {
             listIndexes[j] = 0;
+            objectList[j] = null;
           }
         }
       }
@@ -377,104 +377,107 @@ public class DremelProcessor : IDremelProcessor
         var parentDict = parentObject as Dictionary<string, object?>;
         var parentList = parentObject as List<object?>;
 
-        // Check whether object exists at current level
-        bool currentExists = true;
-        if (parentNodeType == LogicalNodeType.STRUCT && (!parentDict.TryGetValue(currentNode.Name, out var childObj) || childObj is null))
+        if (currentNode.LogicalNodeType == LogicalNodeType.LEAF)
         {
-          // Parent is struct, but current object doesn't exists - create
-          currentExists = false;
+          object? leafValue = dl == currentNode.DefinitionLevel ? value : DBNull.Value;
+          // Add the leaf to parent (which can be STRUCT, LIST, MAP)
+          if (parentNode.LogicalNodeType == LogicalNodeType.STRUCT && parentDict is not null)
+          {
+            parentDict[currentNode.Name] = leafValue;
+          }
+          else if (parentNode.LogicalNodeType == LogicalNodeType.LIST && parentList is not null)
+          {
+            parentList.Add(leafValue);
+          }
+          else
+          {
+            throw new Exception("Unable to write leaf value.");
+          }
         }
-        else if (parentNodeType == LogicalNodeType.LIST && (parentList.Count() < listIndexes[j]))
+        else
         {
-          // Parent is LIST, but current list index doesn't exists - create
-          currentExists = false;
-        }
+          // group node - make sure exists at each level of the path.
+          bool currentExists = true;
+          if (parentNodeType == LogicalNodeType.STRUCT && (!parentDict.TryGetValue(currentNode.Name, out var childObj) || childObj is null))
+          {
+            // Parent is struct, but current object doesn't exists - create
+            currentExists = false;
+          }
+          else if (parentNodeType == LogicalNodeType.LIST && (parentList.Count() < listIndexes[j]))
+          {
+            // Parent is LIST, but current list index doesn't exists - create
+            currentExists = false;
+          }
 
-        if (!currentExists)
-        {
-          // need to create current object + add to parent
-          if (currentNode.LogicalNodeType == LogicalNodeType.LIST && dl < currentNode.ContainerDefinitionLevel)
+          if (!currentExists)
           {
-            if (parentNodeType == LogicalNodeType.LIST)
+            // need to create current object + add to parent
+            if (currentNode.LogicalNodeType == LogicalNodeType.LIST && dl < currentNode.ContainerDefinitionLevel)
             {
-              // add new null element and break from inner path loop
-              parentList[listIndexes[j - 1]] = DBNull.Value;
+              if (parentNodeType == LogicalNodeType.LIST)
+              {
+                // add new null element and break from inner path loop
+                parentList[listIndexes[j - 1]] = DBNull.Value;
+              }
+              else if (parentNodeType == LogicalNodeType.STRUCT)
+              {
+                parentDict[currentNode.Name] = DBNull.Value;
+              }
+              objectList[j] = DBNull.Value;
+              break;
             }
-            else if (parentNodeType == LogicalNodeType.STRUCT)
+            else if (currentNode.LogicalNodeType == LogicalNodeType.LIST && dl < currentNode.DefinitionLevel)
             {
-              parentDict[currentNode.Name] = DBNull.Value;
+              if (parentNodeType == LogicalNodeType.LIST)
+              {
+                // add new empty list and break from inner path loop
+                parentList[listIndexes[j - 1]] = new List<object?>();
+              }
+              else if (parentNodeType == LogicalNodeType.STRUCT)
+              {
+                parentDict[currentNode.Name] = new List<object?>();
+              }
+              objectList[j] = new List<object?>();
+              break;
             }
-            objectList[j] = DBNull.Value;
-            break;
-          }
-          else if (currentNode.LogicalNodeType == LogicalNodeType.LIST && dl < currentNode.DefinitionLevel)
-          {
-            if (parentNodeType == LogicalNodeType.LIST)
+            else if (currentNode.LogicalNodeType == LogicalNodeType.STRUCT && dl < currentNode.DefinitionLevel)
             {
-              // add new empty list and break from inner path loop
-              parentList[listIndexes[j - 1]] = new List<object?>();
-            }
-            else if (parentNodeType == LogicalNodeType.STRUCT)
-            {
-              parentDict[currentNode.Name] = new List<object?>();
-            }
-            objectList[j] = new List<object?>();
-            break;
-          }
-          else if (currentNode.LogicalNodeType == LogicalNodeType.STRUCT && dl < currentNode.DefinitionLevel)
-          {
-            // null struct
-            if (parentNodeType == LogicalNodeType.LIST)
-            {
-              // add new null element and break from inner path loop
-              parentList[listIndexes[j - 1]] = DBNull.Value;
-            }
-            else if (parentNodeType == LogicalNodeType.STRUCT)
-            {
-              parentDict[currentNode.Name] = DBNull.Value;
-            }
-            objectList[j] = DBNull.Value;
-            break;
-          }
-          else if (currentNode.LogicalNodeType != LogicalNodeType.LEAF)
-          {
-            // Current value is not null - add value, and do not break from inner loop
-            object? currentObject = null;
-            if (currentNode.LogicalNodeType == LogicalNodeType.STRUCT)
-            {
-              currentObject = new Dictionary<string, object?>();
-            }
-            else if (currentNode.LogicalNodeType == LogicalNodeType.LIST)
-            {
-              currentObject = new List<object?>();
-            }
-
-            if (parentNodeType == LogicalNodeType.LIST)
-            {
-              // add new null element and break from inner path loop
-              parentList[listIndexes[j - 1]] = currentObject;
-            }
-            else if (parentNodeType == LogicalNodeType.STRUCT)
-            {
-              parentDict[currentNode.Name] = currentObject;
-            }
-            objectList[j] = currentObject;
-          }
-          else if (currentNode.LogicalNodeType == LogicalNodeType.LEAF)
-          {
-            object? leafValue = dl == currentNode.DefinitionLevel ? value : DBNull.Value;
-            // Add the leaf to parent (which can be STRUCT, LIST, MAP)
-            if (parentNode.LogicalNodeType == LogicalNodeType.STRUCT && parentDict is not null)
-            {
-              parentDict[currentNode.Name] = leafValue;
-            }
-            else if (parentNode.LogicalNodeType == LogicalNodeType.LIST && parentList is not null)
-            {
-              parentList.Add(leafValue);
+              // null struct
+              if (parentNodeType == LogicalNodeType.LIST)
+              {
+                // add new null element and break from inner path loop
+                parentList[listIndexes[j - 1]] = DBNull.Value;
+              }
+              else if (parentNodeType == LogicalNodeType.STRUCT)
+              {
+                parentDict[currentNode.Name] = DBNull.Value;
+              }
+              objectList[j] = DBNull.Value;
+              break;
             }
             else
             {
-              throw new Exception("Unable to write leaf value.");
+              // Current value is not null - add group object, and do not break from inner loop
+              object? currentObject = null;
+              if (currentNode.LogicalNodeType == LogicalNodeType.STRUCT)
+              {
+                currentObject = new Dictionary<string, object?>();
+              }
+              else if (currentNode.LogicalNodeType == LogicalNodeType.LIST)
+              {
+                currentObject = new List<object?>();
+              }
+
+              if (parentNodeType == LogicalNodeType.LIST)
+              {
+                // add new null element and break from inner path loop
+                parentList[listIndexes[j - 1]] = currentObject;
+              }
+              else if (parentNodeType == LogicalNodeType.STRUCT)
+              {
+                parentDict[currentNode.Name] = currentObject;
+              }
+              objectList[j] = currentObject;
             }
           }
         }

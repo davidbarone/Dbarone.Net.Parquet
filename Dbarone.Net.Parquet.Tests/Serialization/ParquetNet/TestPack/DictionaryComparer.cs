@@ -17,6 +17,14 @@ public class DictionaryComparer : IEqualityComparer<Dictionary<string, object?>>
       // Handle nulls and value equality
       if (kvp.Value == null && value != null) return false;
       if (kvp.Value != null && kvp.Value.GetType() == typeof(byte[]) && ((byte[])kvp.Value).SequenceEqual((byte[])value)) return true;  // comparing byte[]
+      // if values are themselves lists / IEnumerable, do sequence compare
+      if (kvp.Value != null && kvp.Value is IEnumerable<object> && value != null && value is IEnumerable<object>)
+      {
+        var left = kvp.Value as IEnumerable<object>;
+        var right = value as IEnumerable<object>;
+        return left.SequenceEqual(right);
+      }
+      // finally, do reference equality (note this will return false if 2 equivalent objects with different address references)
       if (kvp.Value != null && !kvp.Value.Equals(value)) return false;
     }
     return true;
