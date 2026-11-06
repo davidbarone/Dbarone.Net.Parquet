@@ -1,3 +1,5 @@
+namespace Dbarone.Net.Parquet.Dremel;
+
 /// <summary>
 /// Group nodes are non-primitive schema elements that contain child fields, and have no physical type.
 /// 

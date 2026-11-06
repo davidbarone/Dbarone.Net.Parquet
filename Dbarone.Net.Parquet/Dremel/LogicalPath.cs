@@ -1,5 +1,4 @@
-
-using Dbarone.Net.Parquet.Dremel;
+namespace Dbarone.Net.Parquet.Dremel;
 
 /// <summary>
 /// Represents a logical path from root to leaf node used by Dremel shredding / assembly.

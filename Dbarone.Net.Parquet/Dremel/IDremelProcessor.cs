@@ -1,3 +1,5 @@
+namespace Dbarone.Net.Parquet.Dremel;
+
 using Dbarone.Net.Parquet.Dremel;
 
 public interface IDremelProcessor

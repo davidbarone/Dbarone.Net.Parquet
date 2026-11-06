@@ -1,3 +1,5 @@
+namespace Dbarone.Net.Parquet.Dremel;
+
 /// <summary>
 /// The type of logical node.
 /// </summary>
