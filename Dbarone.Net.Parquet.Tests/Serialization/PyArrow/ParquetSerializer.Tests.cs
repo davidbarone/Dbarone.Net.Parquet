@@ -102,4 +102,21 @@ public class ParquetSerializerTests
 
     Assert.Equal(expected, parquet.Data.ToDictionaryEnumerable(), new DictionaryComparer());
   }
+
+  [Fact]
+  public void nested_list_not_null()
+  {
+    var bytes = GetFile("nested_list_not_null.parquet");
+    var parquet = new ParquetSerializer().Read(bytes);
+
+    List<Dictionary<string, object?>> expected = [
+      new() { ["list_int32"] = new List<object?>{1,2} },
+      new() { ["list_int32"] = new List<object?>{null} },
+      new() { ["list_int32"] = new List<object?>{3,4} },
+      new() { ["list_int32"] = new List<object?>{} },
+    ];
+
+    Assert.Equal(expected, parquet.Data.ToDictionaryEnumerable(), new DictionaryComparer());
+  }
+
 }

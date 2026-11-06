@@ -33,6 +33,7 @@
     <None Include="TestData\PyArrow\binary.parquet" CopyToOutputDirectory="Always" />
     <None Include="TestData\PyArrow\nulls.parquet" CopyToOutputDirectory="Always" />
     <None Include="TestData\PyArrow\nested_list.parquet" CopyToOutputDirectory="Always" />
+    <None Include="TestData\PyArrow\nested_list_not_null.parquet" CopyToOutputDirectory="Always" />
   </ItemGroup>
 
 </Project>

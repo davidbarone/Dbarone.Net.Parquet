@@ -381,11 +381,11 @@ public class DremelProcessor : IDremelProcessor
         {
           object? leafValue = dl == currentNode.DefinitionLevel ? value : DBNull.Value;
           // Add the leaf to parent (which can be STRUCT, LIST, MAP)
-          if (parentNode.LogicalNodeType == LogicalNodeType.STRUCT && parentDict is not null)
+          if (parentNodeType == LogicalNodeType.STRUCT && parentDict is not null)
           {
             parentDict[currentNode.Name] = leafValue;
           }
-          else if (parentNode.LogicalNodeType == LogicalNodeType.LIST && parentList is not null)
+          else if (parentNodeType == LogicalNodeType.LIST && parentList is not null)
           {
             parentList.Add(leafValue);
           }
