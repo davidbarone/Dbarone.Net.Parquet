@@ -186,4 +186,34 @@ public class LogicalPath
       p.GetSchemaType() == SchemaType.Primitive);
     return element is null ? -1 : path.IndexOf(element);
   }
+
+  private bool IsNotParquetSchema(List<SchemaNode> path)
+  {
+    return !path.All(p => p.SchemaElement is not null);
+  }
+
+  private void AddNonParquetPath(List<SchemaNode> path, List<LogicalPathNode> pruned)
+  {
+    foreach (var item in path)
+    {
+      LogicalNodeType nodeType = default;
+      if (item.Children.Count == 0)
+      {
+        nodeType = LogicalNodeType.LEAF;
+      }
+      else if (
+        item.Repetition == RepetitionKind.Repeated
+      )
+      {
+        nodeType = LogicalNodeType.LIST;
+      }
+      else
+      {
+        nodeType = LogicalNodeType.STRUCT;
+      }
+
+      LogicalPathNode node = new LogicalPathNode(item.Name, nodeType, item.MaxDefinitionLevel, item.MaxRepetitionLevel, item.MaxDefinitionLevel);
+      pruned.Add(node);
+    }
+  }
 }
