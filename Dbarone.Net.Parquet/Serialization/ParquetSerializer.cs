@@ -74,7 +74,10 @@ public class ParquetSerializer
     // and get all corresponding column chunks, assembling them into a
     // resultset using Dremel, and unioning all row chunks at the end.
 
-    // Convert schema to dremel node hierarchy
+    // Convert schema to logical node hierarchy (i.e. schema that matches requires data schema, not the Parquet synthetic schema)
+    var schemaElementRoot = model.MetaData.Schema.ToNode();
+    var logicalSchemaElementRoot = schemaElementRoot.ConvertTo(new LogicalSchemaElementConverter());
+
     DremelProcessor dremel = new DremelProcessor();
     (var root, _) = SchemaNode.BuildFromThriftSchema(model.MetaData.Schema);
 

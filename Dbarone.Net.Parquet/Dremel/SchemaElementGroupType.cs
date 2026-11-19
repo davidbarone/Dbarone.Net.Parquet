@@ -1,9 +1,9 @@
 namespace Dbarone.Net.Parquet.Dremel;
 
 /// <summary>
-/// The type of logical node.
+/// The group type of a SchemaElement object.
 /// </summary>
-public enum LogicalNodeType
+public enum SchemaElementGroupType
 {
   /// <summary>
   /// Struct node. Implemented as a dictionary in the logical data model.
@@ -21,7 +21,7 @@ public enum LogicalNodeType
   MAP,
 
   /// <summary>
-  /// Leaf node
+  /// Leaf / primitive node (i.e. not a group)
   /// </summary>
-  LEAF
+  PRIMITIVE
 }

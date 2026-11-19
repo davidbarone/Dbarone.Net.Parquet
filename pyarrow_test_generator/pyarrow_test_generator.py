@@ -108,6 +108,15 @@ def gen_nested_list():
     print("---------------")
     print(schema)
 
+    for i in range(pf.metadata.row_group(0).num_columns):
+        col_meta = pf.metadata.row_group(0).column(i)
+        print(f"Column: {pf.schema.column(i).name}")
+        print(f"  Max Definition Level: {col_meta.max_definition_level}")
+        print(f"  Max Repetition Level: {col_meta.max_repetition_level}")
+        print(f"  Physical Type: {col_meta.physical_type}")
+        print(f"  Logical Type: {col_meta.logical_type}")
+        print()
+
 # 6. nested_list_not_null.parquet
 # Similar to nested_list, but the list is not nullable.
 # Note subtle change to the nullability of the LIST

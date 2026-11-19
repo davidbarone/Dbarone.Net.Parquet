@@ -2,6 +2,8 @@ namespace Dbarone.Net.Parquet.Dremel;
 
 /// <summary>
 /// Stores the definition levels, repetition levels and data values for a single leaf column.
+/// The logical path provides all the nesting information so that the leaf data can
+/// reassembled into the final nested output.
 /// </summary>
 public sealed class ColumnBuffer
 {

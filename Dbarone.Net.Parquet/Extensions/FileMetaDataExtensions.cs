@@ -1,6 +1,8 @@
-using Dbarone.Net.Parquet.Thrift;
-
 namespace Dbarone.Net.Parquet.Extensions;
+
+using Dbarone.Net.Parquet.Common;
+using Dbarone.Net.Parquet.Dremel;
+using Dbarone.Net.Parquet.Thrift;
 
 public static class FileMetaDataExtensions
 {
@@ -171,4 +173,85 @@ public static class FileMetaDataExtensions
       return false;
     }
   }
+
+  #region SchemaElement extensions
+
+  /// <summary>
+  /// Converts a flattened parquet schema to a node tree.
+  /// </summary>
+  /// <param name="schema">Flattened Parquet schema</param>
+  /// <returns>Returns a node tree.</returns>
+  public static Node<SchemaElement> ToNode(this List<SchemaElement> schema)
+  {
+    // nested function to process elements
+    Node<SchemaElement> ProcessThriftSchema(List<SchemaElement> thriftSchema, Node<SchemaElement>? parent = null, int currentThriftIndex = 0)
+    {
+      // Get current element
+      var element = thriftSchema[currentThriftIndex];
+      var node = new Node<SchemaElement>(element);
+
+      // Add to parent if applicable
+      if (parent is not null)
+      {
+        parent.AddChild(node);
+      }
+
+      // Process children
+      for (int i = 1; i <= element.NumChildren; i++)
+      {
+        var childThriftIndex = currentThriftIndex + i;
+        ProcessThriftSchema(thriftSchema, node, childThriftIndex);
+      }
+
+      return node;
+    }
+    return ProcessThriftSchema(schema);
+  }
+
+  public static int GetMaxDefinitionLevelIncr(this SchemaElement schemaElement)
+  {
+    // In dremel specification, repeated fields are nullable AND repeated    
+    return schemaElement.RepetitionType == RepetitionType.REQUIRED ? 0 : 1;
+  }
+
+  public static int GetMaxRepetitionLevelIncr(this SchemaElement schemaElement)
+  {
+    return schemaElement.RepetitionType == RepetitionType.REPEATED ? 1 : 0;
+  }
+
+  /// <summary>
+  /// Calculates the element group type. 
+  /// </summary>
+  /// <param name="element">The element</param>
+  /// <returns>Returns the group type of the element.</returns>
+  /// <exception cref="Exception">Throws an exception if the group types cannot be determined.</exception>
+  public static SchemaElementGroupType GetSchemaElementGroupType(this SchemaElement element)
+  {
+    if (element.Type is not null)
+    {
+      return SchemaElementGroupType.PRIMITIVE;
+    }
+    else if (element.NumChildren > 0 && element.Type is null && (element.LogicalType?.LIST is not null || element.ConvertedType == ConvertedType.LIST))
+    {
+      return SchemaElementGroupType.LIST;
+    }
+    else if (element.NumChildren > 0 && element.Type is null && (element.LogicalType?.MAP is not null || element.ConvertedType == ConvertedType.MAP))
+    {
+      return SchemaElementGroupType.MAP;
+    }
+    else if (element.NumChildren > 0 && element.Type is null)
+    {
+      return SchemaElementGroupType.STRUCT;
+    }
+    else
+    {
+      throw new Exception($"Unable to determine SchemaElementGroupType for {element.Name}.");
+    }
+  }
+  public static Node<LogicalSchemaElement> ToLogicalSchemaElementNode(this Node<SchemaElement> schemaElementNode)
+  {
+    return schemaElementNode.ConvertTo(new SchemaElementToLogicalSchemaElementConverter(schemaElementNode));
+  }
+
+  #endregion
 }

@@ -1,12 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <ProjectReference Include="..\..\Dbarone.Net.Buffers\Dbarone.Net.Buffers\Dbarone.Net.Buffers.csproj">
-      <ReferenceOutputAssembly>True</ReferenceOutputAssembly>
-    </ProjectReference>
-  </ItemGroup>
-
-  <ItemGroup>
     <PackageReference Include="Dbarone.Net.Extensions" Version="2.0.2" />
   </ItemGroup>
 
@@ -14,8 +8,6 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <!-- Line below added to fix C# Dev Kit issue loading Dbarone.Net.Buffers as project reference (see above) -->
-    <CompileUsingReferenceAssemblies Condition="'$(DesignTimeBuild)' == 'true'">false</CompileUsingReferenceAssemblies>
   </PropertyGroup>
 
 </Project>

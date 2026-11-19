@@ -11,7 +11,7 @@ namespace Dbarone.Net.Parquet.Dremel;
 /// 
 /// Additionally, this enum includes a SYNTHETIC enum. This is for other synthetic group nodes, as defined where node.IsSyntheticGroup = true 
 /// </summary>
-public enum SchemaGroupType
+public enum SchemaGroupType_TODELETE
 {
   /// <summary>
   /// This node is not a group type.
