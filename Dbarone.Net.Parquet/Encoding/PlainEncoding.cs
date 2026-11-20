@@ -1,6 +1,6 @@
 namespace Dbarone.Net.Parquet.Encoding;
 
-using Dbarone.Net.Buffers;
+using Dbarone.Net.Parquet.Buffers;
 
 /// <summary>
 /// Implements PLAIN encoding in Parquet.

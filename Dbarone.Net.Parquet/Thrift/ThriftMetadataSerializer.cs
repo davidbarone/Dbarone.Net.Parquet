@@ -3,9 +3,8 @@ namespace Dbarone.Net.Parquet.Thrift;
 using System.Collections;
 using System.Reflection;
 using MappingRulesAlias = System.Collections.Generic.Dictionary<System.Type, System.Collections.Generic.Dictionary<int, System.Reflection.PropertyInfo>>;
-using Dbarone.Net.Buffers;
+using Dbarone.Net.Parquet.Buffers;
 using Dbarone.Net.Extensions;
-using Dbarone.Net.Buffers.Thrift;
 
 /// <summary>
 /// Parquet files store metadata using the Apache Thrift

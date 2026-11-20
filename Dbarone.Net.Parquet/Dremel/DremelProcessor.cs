@@ -1,6 +1,7 @@
 namespace Dbarone.Net.Parquet.Dremel;
 
-using Dbarone.Net.Buffers.Document;
+using Dbarone.Net.Parquet.Common;
+using Dbarone.Net.Parquet.Thrift;
 
 /// <summary>
 /// Dremel Implementation
@@ -146,13 +147,12 @@ public class DremelProcessor : IDremelProcessor
   /// <param name="buffers">The buffers containing the leaf physical data.</param>
   /// <returns>The separate physical leaf datasets are assembled into a single logical dataset.</returns>
   public IList<IDictionary<string, object?>> Assemble(
-      SchemaNode root,
-      Dictionary<SchemaNode, ColumnBuffer> buffers)
+      Dictionary<Node<SchemaElement>, ColumnBuffer> buffers)
   {
     // Get all the leaf columns in schema, and create
     // a cursor object for each
-    var leafColumns = SchemaNode.GetLeafNodes(root).ToList();
-    var cursors = leafColumns.ToDictionary(c => c, c => new ColumnCursor(buffers[c]));
+    var cursors = buffers.Keys.ToDictionary(b => b, b => new ColumnCursor(buffers[b]));
+    var root = buffers.First().Key.GetRoot();
 
     // To store the results
     var result = new List<IDictionary<string, object?>>();
@@ -161,6 +161,7 @@ public class DremelProcessor : IDremelProcessor
     while (cursors.Values.All(c => c.HasNext))
     {
       // process next row and add row to results
+
       var row = AssembleSingleRow(root, cursors);
       result.Add(row);
     }

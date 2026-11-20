@@ -1,5 +1,5 @@
+namespace Dbarone.Net.Parquet.Encoding;
 
-using Dbarone.Net.Buffers.Thrift;
 using Dbarone.Net.Parquet.Thrift;
 
 /// <summary>

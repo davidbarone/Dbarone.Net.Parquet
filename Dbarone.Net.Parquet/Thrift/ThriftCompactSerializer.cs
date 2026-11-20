@@ -1,5 +1,7 @@
 namespace Dbarone.Net.Parquet.Thrift;
 
+using Dbarone.Net.Parquet.Buffers;
+
 /// <summary>
 /// Codes / decodes using the Thrift compact binary protocol.
 /// 

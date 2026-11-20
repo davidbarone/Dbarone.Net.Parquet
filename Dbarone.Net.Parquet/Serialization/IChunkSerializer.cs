@@ -1,3 +1,4 @@
+using Dbarone.Net.Parquet.Common;
 using Dbarone.Net.Parquet.Dremel;
 using Dbarone.Net.Parquet.Thrift;
 
@@ -11,5 +12,5 @@ public interface IChunkSerializer
   /// Gets the data in a chunk.
   /// </summary>
   /// <returns>The chunk data returned as an array.</returns>
-  ColumnBuffer GetData(SchemaNode node, ColumnChunk chunk);
+  ColumnBuffer GetData(Node<SchemaElement> node, ColumnChunk chunk);
 }

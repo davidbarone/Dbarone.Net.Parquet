@@ -1,5 +1,8 @@
 namespace Dbarone.Net.Parquet.Dremel;
 
+using Dbarone.Net.Parquet.Thrift;
+using Dbarone.Net.Parquet.Common;
+
 /// <summary>
 /// Stores the definition levels, repetition levels and data values for a single leaf column.
 /// The logical path provides all the nesting information so that the leaf data can
@@ -7,18 +10,15 @@ namespace Dbarone.Net.Parquet.Dremel;
 /// </summary>
 public sealed class ColumnBuffer
 {
-  public SchemaNode ColumnSchema { get; }
-  public LogicalPath LogicalPath { get; }
+  public Node<SchemaElement> ColumnSchema { get; }
   public List<object?> Values { get; } = new();
   public List<int> DefinitionLevels { get; } = new();
   public List<int> RepetitionLevels { get; } = new();
 
-  public ColumnBuffer(SchemaNode schema)
+  public ColumnBuffer(Node<SchemaElement> schema)
   {
     ColumnSchema = schema;
-    this.LogicalPath = GetLogicalPath(schema);
   }
-
 
   /// <summary>
   /// Creates a complete set of column buffers in one hit:
@@ -46,14 +46,13 @@ public sealed class ColumnBuffer
   /// <param name="repetitionLevels"></param>
   /// <param name="definitionLevels"></param>
   /// <exception cref="Exception"></exception>
-  internal ColumnBuffer(SchemaNode schema, object?[] values, int[] repetitionLevels, int[] definitionLevels)
+  internal ColumnBuffer(Node<SchemaElement> schema, object?[] values, int[] repetitionLevels, int[] definitionLevels)
   {
     if (values is null)
     {
       throw new Exception("Values must not be null");
     }
     ColumnSchema = schema;
-    this.LogicalPath = GetLogicalPath(schema);
     Values = values.ToList();
     RepetitionLevels = repetitionLevels.ToList();
     DefinitionLevels = definitionLevels.ToList();
@@ -61,7 +60,7 @@ public sealed class ColumnBuffer
     // need to balance the 3 arrays.
     if (DefinitionLevels.Count() == 0 && RepetitionLevels.Count() == 0 && Values.Count() == 0)
     {
-      // Genuinly empty chunk
+      // Genuinely empty chunk
     }
     else if (DefinitionLevels.Count() == 0 && RepetitionLevels.Count() == 0)
     {
@@ -101,24 +100,6 @@ public sealed class ColumnBuffer
         }
       }
     }
-  }
-
-  /// <summary>
-  /// Calculate the logical path. This is used by Dremel encoding to create the logical data model
-  /// The logical path represents the actual data model path, not the Parquet schema path (which
-  /// can include additional sythetic nodes).
-  /// </summary>
-  /// <param name="node"></param>
-  /// <returns></returns>
-  private LogicalPath GetLogicalPath(SchemaNode node)
-  {
-    // Calculate the logical path. This is used by Dremel encoding to create the logical data model
-    // The logical path represents the actual data model path, not the Parquet schema path (which
-    // can include additional sythetic nodes).
-    var root = node.GetRoot();
-    var parquetPath = node.GetPathFromAncestor(root);
-    var logicalPath = new LogicalPath(parquetPath);
-    return logicalPath;
   }
 
   public void Write(object? value, int repLevel, int defLevel)

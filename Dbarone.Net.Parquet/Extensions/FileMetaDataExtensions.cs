@@ -208,15 +208,44 @@ public static class FileMetaDataExtensions
     return ProcessThriftSchema(schema);
   }
 
-  public static int GetMaxDefinitionLevelIncr(this SchemaElement schemaElement)
+  private static int MaxDefinitionLevelIncr(this SchemaElement schemaElement)
   {
     // In dremel specification, repeated fields are nullable AND repeated    
     return schemaElement.RepetitionType == RepetitionType.REQUIRED ? 0 : 1;
   }
 
-  public static int GetMaxRepetitionLevelIncr(this SchemaElement schemaElement)
+  private static int MaxRepetitionLevelIncr(this SchemaElement schemaElement)
   {
     return schemaElement.RepetitionType == RepetitionType.REPEATED ? 1 : 0;
+  }
+
+  /// <summary>
+  /// Gets the max definition level for a schema element node.
+  /// </summary>
+  /// <param name="schemaElement"></param>
+  /// <returns></returns>
+  public static int MaxDefinitionLevel(this Node<SchemaElement> schemaElement)
+  {
+    if (schemaElement.IsRoot)
+    {
+      return schemaElement.Value.MaxDefinitionLevelIncr();
+    }
+    else
+    {
+      return schemaElement.Parent!.MaxDefinitionLevel() + schemaElement.Value.MaxDefinitionLevelIncr();
+    }
+  }
+
+  public static int MaxRepetitionLevel(this Node<SchemaElement> schemaElement)
+  {
+    if (schemaElement.IsRoot)
+    {
+      return schemaElement.Value.MaxRepetitionLevelIncr();
+    }
+    else
+    {
+      return schemaElement.Parent!.MaxRepetitionLevel() + schemaElement.Value.MaxRepetitionLevelIncr();
+    }
   }
 
   /// <summary>
@@ -250,7 +279,7 @@ public static class FileMetaDataExtensions
   }
   public static Node<LogicalSchemaElement> ToLogicalSchemaElementNode(this Node<SchemaElement> schemaElementNode)
   {
-    return schemaElementNode.ConvertTo(new SchemaElementToLogicalSchemaElementConverter(schemaElementNode));
+    return schemaElementNode.ConvertTo(new LogicalSchemaElementConverter());
   }
 
   #endregion

@@ -1,4 +1,4 @@
-namespace Dbarone.Net.Buffers.Parquet.Encoding;
+namespace Dbarone.Net.Parquet.Encoding;
 
 /// <summary>
 /// Specifies the text encoding. Currently only UTF8 is supported.

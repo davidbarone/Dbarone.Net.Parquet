@@ -2,9 +2,9 @@ namespace Dbarone.Net.Parquet.Serialization;
 
 using Dbarone.Net.Parquet.Thrift;
 using Dbarone.Net.Parquet.Encoding;
-using Dbarone.Net.Parquet.Extensions;
 using Dbarone.Net.Parquet.Dremel;
 using Dbarone.Net.Parquet.Buffers;
+using Dbarone.Net.Parquet.Common;
 
 /// <summary>
 /// Base class to serialize and deserialize a column chunk.
@@ -33,7 +33,7 @@ public class ChunkSerializer : IChunkSerializer
   /// Pages can be in any order within a chunk.
   /// </summary>
   /// <returns></returns>
-  public ColumnBuffer GetData(SchemaNode node, ColumnChunk chunk)
+  public ColumnBuffer GetData(Node<SchemaElement> node, ColumnChunk chunk)
   {
     // Does chunk contain a dictionary page? (a column chunk can have 0/1 dictionary pages)
     // We define the presence of a ditionary page if Metadata.DictionaryPageOffset is set.
@@ -91,7 +91,7 @@ public class ChunkSerializer : IChunkSerializer
     return ph;
   }
 
-  private object[] GetDictionaryPage(SchemaNode node, ColumnChunk chunk)
+  private object[] GetDictionaryPage(Node<SchemaElement> node, ColumnChunk chunk)
   {
     // Get header
     if (chunk.Metadata.DictionaryPageOffset.HasValue)
@@ -130,7 +130,7 @@ public class ChunkSerializer : IChunkSerializer
     }
   }
 
-  private (object[] Values, int[] RepetitionLevels, int[] DefinitionLevels) GetDataPage(SchemaNode node, ColumnChunk chunk)
+  private (object[] Values, int[] RepetitionLevels, int[] DefinitionLevels) GetDataPage(Node<SchemaElement> node, ColumnChunk chunk)
   {
     var offset = chunk.Metadata.DataPageOffset;
     this.Buffer.Position = offset;
@@ -180,7 +180,7 @@ public class ChunkSerializer : IChunkSerializer
     return (data, repetitionLevels, definitionLevels);
   }
 
-  private int[] GetDefinitionLevels(SchemaNode node, PageHeader pageHeader)
+  private int[] GetDefinitionLevels(Node<SchemaElement> node, PageHeader pageHeader)
   {
     // Check / get Repetition Levels
     var mdl = node.MaxDefinitionLevel;
@@ -202,7 +202,7 @@ public class ChunkSerializer : IChunkSerializer
     }
   }
 
-  private int[]? GetRepetitionLevels(SchemaNode node, PageHeader pageHeader)
+  private int[]? GetRepetitionLevels(Node<SchemaElement> node, PageHeader pageHeader)
   {
     // Check / get Repetition Levels
     var mrl = node.MaxRepetitionLevel;

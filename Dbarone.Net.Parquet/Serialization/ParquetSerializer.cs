@@ -1,11 +1,12 @@
 namespace Dbarone.Net.Parquet.Serialization;
 
 using Dbarone.Net.Parquet.Thrift;
-using Dbarone.Net.Buffers;
-using Dbarone.Net.Buffers.Document;
+using Dbarone.Net.Parquet.Document;
+using Dbarone.Net.Parquet.Buffers;
 using Dbarone.Net.Parquet.Encoding;
 using Dbarone.Net.Parquet.Extensions;
 using Dbarone.Net.Parquet.Dremel;
+using Dbarone.Net.Parquet.Common;
 
 /// <summary>
 /// Parquet is an open source, column-oriented data file format designed for
@@ -74,19 +75,15 @@ public class ParquetSerializer
     // and get all corresponding column chunks, assembling them into a
     // resultset using Dremel, and unioning all row chunks at the end.
 
-    // Convert schema to logical node hierarchy (i.e. schema that matches requires data schema, not the Parquet synthetic schema)
     var schemaElementRoot = model.MetaData.Schema.ToNode();
-    var logicalSchemaElementRoot = schemaElementRoot.ConvertTo(new LogicalSchemaElementConverter());
-
     DremelProcessor dremel = new DremelProcessor();
-    (var root, _) = SchemaNode.BuildFromThriftSchema(model.MetaData.Schema);
 
     for (int i = 0; i < model.MetaData.RowGroups.Count(); i++)
     {
       var rowGroup = model.MetaData.RowGroups[i];
-      var rowGroupBuffers = AssembleRowGroup(buffer, root, rowGroup.Columns);
+      var rowGroupBuffers = AssembleRowGroup(buffer, schemaElementRoot, rowGroup.Columns);
       model.RowGroupBuffers.Add(rowGroupBuffers);
-      var result = dremel.Assemble(root, rowGroupBuffers);
+      var result = dremel.Assemble(rowGroupBuffers);
       var rows = result.Select(r => new TableRow(r));
       model.Data.AddRange(rows);
     }
@@ -95,17 +92,19 @@ public class ParquetSerializer
     return model;
   }
 
-  private Dictionary<SchemaNode, ColumnBuffer> AssembleRowGroup(IBuffer buffer, SchemaNode root, List<ColumnChunk> chunks)
+  private Dictionary<Node<SchemaElement>, ColumnBuffer> AssembleRowGroup(IBuffer buffer, Node<SchemaElement> root, List<ColumnChunk> chunks)
   {
     // Get leaf nodes
-    var leaves = SchemaNode.GetLeafNodes(root);
+    var leaves = root.GetLeafNodes();
 
     // Get data for each leaf column
-    Dictionary<SchemaNode, ColumnBuffer> results = new Dictionary<SchemaNode, ColumnBuffer>();
+    Dictionary<Node<SchemaElement>, ColumnBuffer> results = new Dictionary<Node<SchemaElement>, ColumnBuffer>();
     IChunkSerializer ser = new ChunkSerializer(buffer, ThriftMetaDataSerialiser);
     foreach (var leaf in leaves)
     {
-      var data = ser.GetData(leaf, chunks[leaf.ChunkIndex!.Value]);
+      // chunk index is equivalent to the leaf index in the node
+      var chunkIndex = leaf.GetDepthFirstIndex(true);
+      var data = ser.GetData(leaf, chunks[chunkIndex!.Value]);
       results[leaf] = data;
     }
     return results;
