@@ -5,6 +5,7 @@ using Dbarone.Net.Parquet.Encoding;
 using Dbarone.Net.Parquet.Dremel;
 using Dbarone.Net.Parquet.Buffers;
 using Dbarone.Net.Parquet.Common;
+using Dbarone.Net.Parquet.Extensions;
 
 /// <summary>
 /// Base class to serialize and deserialize a column chunk.
@@ -120,7 +121,7 @@ public class ChunkSerializer : IChunkSerializer
     if (enc == Dbarone.Net.Parquet.Thrift.Encoding.PLAIN)
     {
       var encoding = new PlainEncoding(Buffer);
-      var dict = encoding.Read(node.SchemaElement, dictionaryPageHeader.NumValues);
+      var dict = encoding.Read(node.Value, dictionaryPageHeader.NumValues);
       return dict;
     }
     else
@@ -154,7 +155,7 @@ public class ChunkSerializer : IChunkSerializer
 
     // Get the number of data values to read. This depends on the definition levels
     // as only non-null values are stored in a data page.
-    var numValues = GetDataStreamPhysicalValues(definitionLevels, node.MaxDefinitionLevel, repetitionLevels, node.MaxRepetitionLevel, pageHeader);
+    var numValues = GetDataStreamPhysicalValues(definitionLevels, node.MaxDefinitionLevel(), repetitionLevels, node.MaxRepetitionLevel(), pageHeader);
 
     // Get the data in the page:
     object[]? data = null;
@@ -162,12 +163,12 @@ public class ChunkSerializer : IChunkSerializer
     {
       case Thrift.Encoding.PLAIN:
         encoding = new PlainEncoding(Buffer);
-        data = encoding.Read(node.SchemaElement, numValues);
+        data = encoding.Read(node.Value, numValues);
         break;
       case Thrift.Encoding.DELTA_BINARY_PACKED:
         // for int32 and int64
         encoding = new DeltaBinaryPackedEncoding(Buffer);
-        data = encoding.Read(node.SchemaElement, numValues);
+        data = encoding.Read(node.Value, numValues);
         break;
       case Thrift.Encoding.RLE_DICTIONARY:
         encoding = new RLEEncoding(Buffer, RLEEncodingDataKind.DATA_PAGE_V1_DICTIONARY_INDICES);
@@ -183,7 +184,7 @@ public class ChunkSerializer : IChunkSerializer
   private int[] GetDefinitionLevels(Node<SchemaElement> node, PageHeader pageHeader)
   {
     // Check / get Repetition Levels
-    var mdl = node.MaxDefinitionLevel;
+    var mdl = node.MaxDefinitionLevel();
     var numValues = pageHeader.PageType == PageType.DICTIONARY_PAGE ? pageHeader.DictionaryPageHeader.NumValues : pageHeader.DataPageHeader.NumValues;
     int[] definitionLevels = new int[numValues];
 
@@ -205,7 +206,7 @@ public class ChunkSerializer : IChunkSerializer
   private int[]? GetRepetitionLevels(Node<SchemaElement> node, PageHeader pageHeader)
   {
     // Check / get Repetition Levels
-    var mrl = node.MaxRepetitionLevel;
+    var mrl = node.MaxRepetitionLevel();
     var numValues = pageHeader.PageType == PageType.DICTIONARY_PAGE ? pageHeader.DictionaryPageHeader.NumValues : pageHeader.DataPageHeader.NumValues;
     int[] repetitionLevels = new int[numValues];
 
