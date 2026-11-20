@@ -2,6 +2,7 @@ namespace Dbarone.Net.Parquet.Dremel;
 
 using Dbarone.Net.Parquet.Thrift;
 using Dbarone.Net.Parquet.Common;
+using Dbarone.Net.Parquet.Extensions;
 
 /// <summary>
 /// Stores the definition levels, repetition levels and data values for a single leaf column.
@@ -71,11 +72,11 @@ public sealed class ColumnBuffer
     else if (DefinitionLevels.Count() > 0 && RepetitionLevels.Count() == 0)
     {
       // pad out RL with MRL?
-      RepetitionLevels = new List<int>(System.Linq.Enumerable.Repeat<int>(schema.MaxRepetitionLevel, DefinitionLevels.Count()));
+      RepetitionLevels = new List<int>(System.Linq.Enumerable.Repeat<int>(schema.MaxRepetitionLevel(), DefinitionLevels.Count()));
       // pad out values with nulls
       for (int i = 0; i < DefinitionLevels.Count(); i++)
       {
-        if (DefinitionLevels[i] < schema.MaxDefinitionLevel)
+        if (DefinitionLevels[i] < schema.MaxDefinitionLevel())
         {
           // add a null
           Values.Insert(i, null);
@@ -85,7 +86,7 @@ public sealed class ColumnBuffer
     else if (RepetitionLevels.Count() > 0 && DefinitionLevels.Count() == 0)
     {
       // pad out DL with MDL?
-      DefinitionLevels = new List<int>(System.Linq.Enumerable.Repeat<int>(schema.MaxDefinitionLevel, DefinitionLevels.Count()));
+      DefinitionLevels = new List<int>(System.Linq.Enumerable.Repeat<int>(schema.MaxDefinitionLevel(), DefinitionLevels.Count()));
     }
     else
     {
@@ -93,7 +94,7 @@ public sealed class ColumnBuffer
       // pad out values with nulls
       for (int i = 0; i < DefinitionLevels.Count(); i++)
       {
-        if (DefinitionLevels[i] < schema.MaxDefinitionLevel)
+        if (DefinitionLevels[i] < schema.MaxDefinitionLevel())
         {
           // add a null
           Values.Insert(i, null);
