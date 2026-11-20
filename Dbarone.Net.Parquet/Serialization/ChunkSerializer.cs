@@ -1,11 +1,10 @@
 namespace Dbarone.Net.Parquet.Serialization;
 
-using Dbarone.Net.Buffers;
 using Dbarone.Net.Parquet.Thrift;
 using Dbarone.Net.Parquet.Encoding;
-using Dbarone.Net.Buffers.Document;
 using Dbarone.Net.Parquet.Extensions;
 using Dbarone.Net.Parquet.Dremel;
+using Dbarone.Net.Parquet.Buffers;
 
 /// <summary>
 /// Base class to serialize and deserialize a column chunk.
