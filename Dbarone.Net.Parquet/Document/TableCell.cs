@@ -6,7 +6,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
-using Dbarone.Net.Buffers.I18n;
+using Dbarone.Net.Parquet.I18n;
 
 /// <summary>
 /// Represent a simple value used in Document.

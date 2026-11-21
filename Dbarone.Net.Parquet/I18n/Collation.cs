@@ -1,13 +1,9 @@
 namespace Dbarone.Net.Parquet.I18n;
 
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Globalization;
-using System.IO;
-using System.Threading;
-using Dbarone.Net.Buffers.Document;
+using Dbarone.Net.Parquet.Document;
 
 /// <summary>
 /// Specifies collation comparisons for defined culture settings. Default CurrentCulture with IgnoreCase.
@@ -24,7 +20,7 @@ public class Collation : IComparer<TableCell>, IComparer<string>, IEqualityCompa
             (CompareOptions)Enum.Parse(typeof(CompareOptions), parts[1]) :
             CompareOptions.None;
 
-        this.LCID = Dbarone.Net.Document.LCID.GetLCID(culture);
+        this.LCID = I18n.LCID.GetLCID(culture);
         this.SortOptions = sortOptions;
         this.Culture = new CultureInfo(culture);
 
@@ -35,12 +31,12 @@ public class Collation : IComparer<TableCell>, IComparer<string>, IEqualityCompa
     {
         this.LCID = lcid;
         this.SortOptions = sortOptions;
-        this.Culture = Dbarone.Net.Document.LCID.GetCulture(lcid);
+        this.Culture = I18n.LCID.GetCulture(lcid);
 
         _compareInfo = this.Culture.CompareInfo;
     }
 
-    public static Collation Default = new Collation(Dbarone.Net.Document.LCID.Current, CompareOptions.IgnoreCase);
+    public static Collation Default = new Collation(I18n.LCID.Current, CompareOptions.IgnoreCase);
 
     public static Collation Binary = new Collation(127 /* Invariant */, CompareOptions.Ordinal);
 

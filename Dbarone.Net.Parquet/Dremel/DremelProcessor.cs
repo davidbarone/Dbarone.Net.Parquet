@@ -2,6 +2,7 @@ namespace Dbarone.Net.Parquet.Dremel;
 
 using Dbarone.Net.Parquet.Common;
 using Dbarone.Net.Parquet.Thrift;
+using Dbarone.Net.Parquet.Extensions;
 
 /// <summary>
 /// Dremel Implementation
@@ -14,9 +15,9 @@ using Dbarone.Net.Parquet.Thrift;
 public class DremelProcessor : IDremelProcessor
 {
   #region Shred Public Methods
-  public Dictionary<SchemaNode, ColumnBuffer> Shred(SchemaNode root, IEnumerable<IDictionary<string, object?>> rows)
+  public Dictionary<Node<SchemaElement>, ColumnBuffer> Shred(Node<SchemaElement> root, IEnumerable<IDictionary<string, object?>> rows)
   {
-    var leafColumns = SchemaNode.GetLeafNodes(root);
+    var leafColumns = root.GetLeafNodes();
     var buffers = leafColumns.ToDictionary(c => c, c => new ColumnBuffer(c));
 
     int docRepLevel = 0; // root repeated level (usually 0)
@@ -35,21 +36,21 @@ public class DremelProcessor : IDremelProcessor
   #region Shred Private Methods
 
   private static void ShredMessage(
-          SchemaNode node,
+          Node<SchemaElement> node,
           IDictionary<string, object?> message,
-          Dictionary<SchemaNode, ColumnBuffer> buffers,
+          Dictionary<Node<SchemaElement>, ColumnBuffer> buffers,
           int defLevel,
           int repLevel)
   {
     foreach (var child in node.Children)
     {
-      message.TryGetValue(child.Name, out var value);
+      message.TryGetValue(child.Value.Name, out var value);
 
       bool isNull = value is null;
-      bool isRepeated = child.Repetition == RepetitionKind.Repeated;
+      bool isRepeated = child.Value.RepetitionType == RepetitionType.REPEATED;
 
-      int childDefInc = (child.Repetition == RepetitionKind.Optional ||
-                         child.Repetition == RepetitionKind.Repeated) ? 1 : 0;
+      int childDefInc = (child.Value.RepetitionType == RepetitionType.OPTIONAL ||
+                         child.Value.RepetitionType == RepetitionType.REPEATED) ? 1 : 0;
       int childDef = defLevel + (isNull ? 0 : childDefInc);
 
       if (isNull)
@@ -81,7 +82,7 @@ public class DremelProcessor : IDremelProcessor
           bool itemIsNull = item is null;
 
           int itemDef = childDef + (itemIsNull ? 0 : 1);
-          int itemRep = (i == 0) ? repLevel : child.MaxRepetitionLevel;
+          int itemRep = (i == 0) ? repLevel : child.MaxRepetitionLevel();
 
           if (child.IsLeaf)
           {
@@ -110,29 +111,14 @@ public class DremelProcessor : IDremelProcessor
   }
 
   private static void EmitNullsForStruct(
-          SchemaNode structNode,
-          Dictionary<SchemaNode, ColumnBuffer> buffers,
+          Node<SchemaElement> structNode,
+          Dictionary<Node<SchemaElement>, ColumnBuffer> buffers,
           int defLevel,
           int repLevel)
   {
-    foreach (var leaf in GetLeaves(structNode))
+    foreach (var leaf in structNode.GetLeafNodes())
     {
       buffers[leaf].Write(null, repLevel, defLevel);
-    }
-
-    static IEnumerable<SchemaNode> GetLeaves(SchemaNode node)
-    {
-      if (node.IsLeaf)
-      {
-        yield return node;
-        yield break;
-      }
-
-      foreach (var child in node.Children)
-      {
-        foreach (var leaf in GetLeaves(child))
-          yield return leaf;
-      }
     }
   }
 
@@ -162,7 +148,7 @@ public class DremelProcessor : IDremelProcessor
     {
       // process next row and add row to results
 
-      var row = AssembleSingleRow(root, cursors);
+      var row = AssembleSingleRow(cursors);
       result.Add(row);
     }
 
@@ -184,8 +170,7 @@ public class DremelProcessor : IDremelProcessor
   /// <param name="cursors">Object containing all the leaf cursors.</param>
   /// <returns>Returns 1 row of the final logical data model.</returns>
   private static IDictionary<string, object?> AssembleSingleRow(
-          SchemaNode root,
-          Dictionary<SchemaNode, ColumnCursor> cursors)
+      Dictionary<Node<SchemaElement>, ColumnCursor> cursors)
   {
     // intialise the root object for the row. This is a dictionary.
     var row = new Dictionary<string, object?>();
@@ -339,7 +324,7 @@ public class DremelProcessor : IDremelProcessor
         var pathIndex = path.FindIndex(p => p.RepetitionLevel >= rl);
         for (int j = pathIndex; j < pathLength; j++)
         {
-          if (j == pathIndex && path[j].LogicalNodeType == LogicalNodeType.LIST)
+          if (j == pathIndex && path[j].LogicalNodeType == SchemaElementGroupType.LIST)
           {
             listIndexes[j]++;
           }
@@ -373,20 +358,20 @@ public class DremelProcessor : IDremelProcessor
       {
         var currentNode = path[j];
         var parentNode = j == 0 ? null : path[j - 1];
-        var parentNodeType = j == 0 ? LogicalNodeType.STRUCT : parentNode!.LogicalNodeType;
+        var parentNodeType = j == 0 ? SchemaElementGroupType.STRUCT : parentNode!.LogicalNodeType;
         var parentObject = j == 0 ? row : objectList[j - 1];
         var parentDict = parentObject as Dictionary<string, object?>;
         var parentList = parentObject as List<object?>;
 
-        if (currentNode.LogicalNodeType == LogicalNodeType.LEAF)
+        if (currentNode.LogicalNodeType == SchemaElementGroupType.PRIMITIVE)
         {
           object? leafValue = dl == currentNode.DefinitionLevel ? value : DBNull.Value;
           // Add the leaf to parent (which can be STRUCT, LIST, MAP)
-          if (parentNodeType == LogicalNodeType.STRUCT && parentDict is not null)
+          if (parentNodeType == SchemaElementGroupType.STRUCT && parentDict is not null)
           {
             parentDict[currentNode.Name] = leafValue;
           }
-          else if (parentNodeType == LogicalNodeType.LIST && parentList is not null)
+          else if (parentNodeType == SchemaElementGroupType.LIST && parentList is not null)
           {
             parentList.Add(leafValue);
           }
@@ -399,12 +384,12 @@ public class DremelProcessor : IDremelProcessor
         {
           // group node - make sure exists at each level of the path.
           bool currentExists = true;
-          if (parentNodeType == LogicalNodeType.STRUCT && (!parentDict.TryGetValue(currentNode.Name, out var childObj) || childObj is null))
+          if (parentNodeType == SchemaElementGroupType.STRUCT && (!parentDict.TryGetValue(currentNode.Name, out var childObj) || childObj is null))
           {
             // Parent is struct, but current object doesn't exists - create
             currentExists = false;
           }
-          else if (parentNodeType == LogicalNodeType.LIST && (parentList.Count() < listIndexes[j]))
+          else if (parentNodeType == SchemaElementGroupType.LIST && (parentList.Count() < listIndexes[j]))
           {
             // Parent is LIST, but current list index doesn't exists - create
             currentExists = false;
@@ -413,43 +398,43 @@ public class DremelProcessor : IDremelProcessor
           if (!currentExists)
           {
             // need to create current object + add to parent
-            if (currentNode.LogicalNodeType == LogicalNodeType.LIST && dl < currentNode.ContainerDefinitionLevel)
+            if (currentNode.LogicalNodeType == SchemaElementGroupType.LIST && dl < currentNode.ContainerDefinitionLevel)
             {
-              if (parentNodeType == LogicalNodeType.LIST)
+              if (parentNodeType == SchemaElementGroupType.LIST)
               {
                 // add new null element and break from inner path loop
                 parentList[listIndexes[j - 1]] = DBNull.Value;
               }
-              else if (parentNodeType == LogicalNodeType.STRUCT)
+              else if (parentNodeType == SchemaElementGroupType.STRUCT)
               {
                 parentDict[currentNode.Name] = DBNull.Value;
               }
               objectList[j] = DBNull.Value;
               break;
             }
-            else if (currentNode.LogicalNodeType == LogicalNodeType.LIST && dl < currentNode.DefinitionLevel)
+            else if (currentNode.LogicalNodeType == SchemaElementGroupType.LIST && dl < currentNode.DefinitionLevel)
             {
-              if (parentNodeType == LogicalNodeType.LIST)
+              if (parentNodeType == SchemaElementGroupType.LIST)
               {
                 // add new empty list and break from inner path loop
                 parentList[listIndexes[j - 1]] = new List<object?>();
               }
-              else if (parentNodeType == LogicalNodeType.STRUCT)
+              else if (parentNodeType == SchemaElementGroupType.STRUCT)
               {
                 parentDict[currentNode.Name] = new List<object?>();
               }
               objectList[j] = new List<object?>();
               break;
             }
-            else if (currentNode.LogicalNodeType == LogicalNodeType.STRUCT && dl < currentNode.DefinitionLevel)
+            else if (currentNode.LogicalNodeType == SchemaElementGroupType.STRUCT && dl < currentNode.DefinitionLevel)
             {
               // null struct
-              if (parentNodeType == LogicalNodeType.LIST)
+              if (parentNodeType == SchemaElementGroupType.LIST)
               {
                 // add new null element and break from inner path loop
                 parentList[listIndexes[j - 1]] = DBNull.Value;
               }
-              else if (parentNodeType == LogicalNodeType.STRUCT)
+              else if (parentNodeType == SchemaElementGroupType.STRUCT)
               {
                 parentDict[currentNode.Name] = DBNull.Value;
               }
@@ -460,21 +445,21 @@ public class DremelProcessor : IDremelProcessor
             {
               // Current value is not null - add group object, and do not break from inner loop
               object? currentObject = null;
-              if (currentNode.LogicalNodeType == LogicalNodeType.STRUCT)
+              if (currentNode.LogicalNodeType == SchemaElementGroupType.STRUCT)
               {
                 currentObject = new Dictionary<string, object?>();
               }
-              else if (currentNode.LogicalNodeType == LogicalNodeType.LIST)
+              else if (currentNode.LogicalNodeType == SchemaElementGroupType.LIST)
               {
                 currentObject = new List<object?>();
               }
 
-              if (parentNodeType == LogicalNodeType.LIST)
+              if (parentNodeType == SchemaElementGroupType.LIST)
               {
                 // add new null element and break from inner path loop
                 parentList[listIndexes[j - 1]] = currentObject;
               }
-              else if (parentNodeType == LogicalNodeType.STRUCT)
+              else if (parentNodeType == SchemaElementGroupType.STRUCT)
               {
                 parentDict[currentNode.Name] = currentObject;
               }
