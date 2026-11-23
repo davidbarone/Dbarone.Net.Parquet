@@ -174,6 +174,39 @@ public static class FileMetaDataExtensions
     }
   }
 
+  #region Node extensions
+
+  /// <summary>
+  /// Gets the max definition level for a schema element node.
+  /// </summary>
+  /// <param name="schemaElement"></param>
+  /// <returns></returns>
+  public static int MaxDefinitionLevel(this Node<LogicalSchemaElement> logicalSchemaElement)
+  {
+    if (logicalSchemaElement.IsRoot)
+    {
+      return logicalSchemaElement.Value.MaxDefinitionLevelIncr;
+    }
+    else
+    {
+      return logicalSchemaElement.Parent!.MaxDefinitionLevel() + logicalSchemaElement.Value.MaxDefinitionLevelIncr;
+    }
+  }
+
+  public static int MaxRepetitionLevel(this Node<LogicalSchemaElement> logicalSchemaElement)
+  {
+    if (logicalSchemaElement.IsRoot)
+    {
+      return logicalSchemaElement.Value.MaxRepetitionLevelIncr;
+    }
+    else
+    {
+      return logicalSchemaElement.Parent!.MaxRepetitionLevel() + logicalSchemaElement.Value.MaxRepetitionLevelIncr;
+    }
+  }
+
+  #endregion
+
   #region SchemaElement extensions
 
   /// <summary>

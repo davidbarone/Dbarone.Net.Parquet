@@ -26,6 +26,26 @@ public class Node<T>
   public bool IsRoot => this.Parent is null;
 
   /// <summary>
+  /// Returns true if the current node is an ancestor of the provided node.
+  /// </summary>
+  /// <param name="node">The descendant node.</param>
+  /// <returns>Returns true if the current node is an ancestor of the specified node.</returns>
+  public bool IsAncestorOf(Node<T> node)
+  {
+    if (node == null)
+      return false;
+
+    var current = node.Parent;
+    while (current != null)
+    {
+      if (current == this)
+        return true;
+      current = current.Parent;
+    }
+    return false;
+  }
+
+  /// <summary>
   /// Returns true if the current node is a leaf node of the tree.
   /// </summary>
   public bool IsLeaf => this.Children is null || this.Children.Count() == 0;
@@ -106,8 +126,10 @@ public class Node<T>
   /// <param name="childrenSelector">The child selector function.</param>
   /// <param name="visitor">The visit function.</param>
   /// <returns>Returns the accumulator.</returns>
-  public NodeTraverseAccumulator<TAcc> DepthFirstTraverse<TAcc>(Node<T> start, NodeTraverseAccumulator<TAcc> acc, Func<Node<T>, IEnumerable<Node<T>>> childrenSelector, Func<Node<T>, NodeTraverseAccumulator<TAcc>, NodeTraverseAccumulator<TAcc>> visitor)
+  public NodeTraverseAccumulator<TAcc> DepthFirstTraverse<TAcc>(NodeTraverseAccumulator<TAcc> acc, Func<Node<T>, IEnumerable<Node<T>>> childrenSelector, Func<Node<T>, NodeTraverseAccumulator<TAcc>, NodeTraverseAccumulator<TAcc>> visitor)
   {
+    var start = this;
+
     // visit current node
     acc = visitor(start, acc);
 
@@ -116,10 +138,27 @@ public class Node<T>
       // Traverse children
       foreach (var child in childrenSelector(start))
       {
-        acc = DepthFirstTraverse(child, acc, childrenSelector, visitor);
+        acc = child.DepthFirstTraverse(acc, childrenSelector, visitor);
       }
     }
     return acc;
+  }
+
+  /// <summary>
+  /// Performs depth-first traversal of tree, outputting each node to a list.
+  /// </summary>
+  /// <returns></returns>
+  public List<Node<T>> ToList()
+  {
+    NodeTraverseAccumulator<List<Node<T>>> result = new NodeTraverseAccumulator<List<Node<T>>>(false, new List<Node<T>>());
+    Func<Node<T>, IEnumerable<Node<T>>> childSelector = (n) => n.Children;
+    Func<Node<T>, NodeTraverseAccumulator<List<Node<T>>>, NodeTraverseAccumulator<List<Node<T>>>> visitor = (node, acc) =>
+    {
+      acc.Accumulator.Add(node);
+      return acc;
+    };
+    var acc = this.DepthFirstTraverse(result, childSelector, visitor);
+    return acc.Accumulator;
   }
 
   /// <summary>
@@ -181,7 +220,7 @@ public class Node<T>
       return new NodeTraverseAccumulator<int?>(cancel, index);
     };
 
-    var acc = DepthFirstTraverse(root, result, childSelector, visitor);
+    var acc = root.DepthFirstTraverse(result, childSelector, visitor);
     return acc.Accumulator;
   }
 
@@ -228,6 +267,23 @@ public class Node<T>
   }
 
   /// <summary>
+  /// Returns the current node, where the children are filtered based on a predicate.
+  /// </summary>
+  /// <param name="predicate">Predicate to filter children.</param>
+  /// <returns>Returns a new Node object with filtered children.</returns>
+  public Node<T> Filter(Func<Node<T>, bool> predicate)
+  {
+    Node<T> node = new Node<T>(this.Value);
+    foreach (var child in node.Children.Where(c => predicate(c)))
+    {
+      var filteredChild = child.Filter(predicate);
+      var childNode = new Node<T>(filteredChild.Value);
+      node.AddChild(childNode);
+    }
+    return node;
+  }
+
+  /// <summary>
   /// Returns a flat list of nodes starting with current node, based on a predicate.
   /// </summary>
   /// <param name="predicate">The predicate to select nodes.</param>
@@ -244,7 +300,7 @@ public class Node<T>
       }
       return acc;
     };
-    var acc = DepthFirstTraverse(this, result, childSelector, visitor);
+    var acc = this.DepthFirstTraverse(result, childSelector, visitor);
     return acc.Accumulator;
   }
 

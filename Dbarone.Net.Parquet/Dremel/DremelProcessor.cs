@@ -138,6 +138,14 @@ public class DremelProcessor : IDremelProcessor
     // Get all the leaf columns in schema, and create
     // a cursor object for each
     var cursors = buffers.Keys.ToDictionary(b => b, b => new ColumnCursor(buffers[b]));
+
+    // create dictionary for each schema element, returning the corresponding logical schema path (used for dremel assembly) 
+    var logicalPaths = buffers.Keys
+      .ToDictionary(
+        k => k,
+        k => k.GetRoot().Filter(n => n.IsAncestorOf(k)).ConvertTo(new LogicalSchemaElementConverter()).ToList()
+      );
+
     var root = buffers.First().Key.GetRoot();
 
     // To store the results
@@ -148,7 +156,7 @@ public class DremelProcessor : IDremelProcessor
     {
       // process next row and add row to results
 
-      var row = AssembleSingleRow(cursors);
+      var row = AssembleSingleRow(cursors, logicalPaths);
       result.Add(row);
     }
 
@@ -170,7 +178,9 @@ public class DremelProcessor : IDremelProcessor
   /// <param name="cursors">Object containing all the leaf cursors.</param>
   /// <returns>Returns 1 row of the final logical data model.</returns>
   private static IDictionary<string, object?> AssembleSingleRow(
-      Dictionary<Node<SchemaElement>, ColumnCursor> cursors)
+      Dictionary<Node<SchemaElement>, ColumnCursor> cursors,
+      Dictionary<Node<SchemaElement>, List<Node<LogicalSchemaElement>>> logicalPaths
+      )
   {
     // intialise the root object for the row. This is a dictionary.
     var row = new Dictionary<string, object?>();
@@ -181,6 +191,7 @@ public class DremelProcessor : IDremelProcessor
       // get the schema node, and the cursor object for the leaf
       var leaf = kvp.Key;
       var cursor = kvp.Value;
+      var logicalPath = logicalPaths[leaf];
 
       // we read value, def and rep level as one logical slot
       var values = new List<object?>();
@@ -207,7 +218,7 @@ public class DremelProcessor : IDremelProcessor
       }
 
       // finally place the data at the correct place in the object
-      PlaceColumnValues(cursor.Buffer.LogicalPath, row, values, defs, reps);
+      PlaceColumnValues(logicalPath, row, values, defs, reps);
     }
 
     // and return the row.
@@ -282,14 +293,14 @@ public class DremelProcessor : IDremelProcessor
   /// <param name="defs">The definition levels for the single root row.</param>
   /// <param name="reps">The repetition levels for the single roow row.</param>
   private static void PlaceColumnValues(
-          LogicalPath logicalPath,
+          List<Node<LogicalSchemaElement>> logicalPath,
           IDictionary<string, object?> row,
           IList<object?> values,
           IList<int> defs,
           IList<int> reps)
   {
     // Get the logical node path + length
-    var path = logicalPath.Path;
+    var path = logicalPath;
     var pathLength = path.Count();
 
     // Define structure to hold object fragment currently active
@@ -306,8 +317,8 @@ public class DremelProcessor : IDremelProcessor
     int[] listIndexes = new int[pathLength];
 
     // Get mdl/mrl for the leaf
-    var mdl = logicalPath.MaxDefinitionLevel;
-    var mrl = logicalPath.MaxRepetitionLevel;
+    var mdl = logicalPath[pathLength - 1].MaxDefinitionLevel();
+    var mrl = logicalPath[pathLength - 1].MaxRepetitionLevel();
 
     // Outer loop - each dl, rl, value for row
     for (int i = 0; i < defs.Count; i++)

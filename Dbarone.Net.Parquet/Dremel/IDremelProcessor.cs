@@ -7,5 +7,5 @@ public interface IDremelProcessor
 {
   public Dictionary<Node<SchemaElement>, ColumnBuffer> Shred(Node<SchemaElement> root, IEnumerable<IDictionary<string, object?>> rows);
 
-  public IList<IDictionary<string, object?>> Assemble(Node<SchemaElement> root, Dictionary<Node<SchemaElement>, ColumnBuffer> buffers);
+  public IList<IDictionary<string, object?>> Assemble(Node<SchemaElement> root, Dictionary<Node<LogicalSchemaElement>, ColumnBuffer> buffers);
 }
