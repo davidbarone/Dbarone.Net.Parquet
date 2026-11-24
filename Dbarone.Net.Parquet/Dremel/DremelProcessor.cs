@@ -332,10 +332,10 @@ public class DremelProcessor : IDremelProcessor
       // node.MaxRepetitionLevel = rl so that new list can be created.
       if (mrl > 0 && rl < mrl)
       {
-        var pathIndex = path.FindIndex(p => p.RepetitionLevel >= rl);
+        var pathIndex = path.FindIndex(p => p.MaxRepetitionLevel() >= rl);
         for (int j = pathIndex; j < pathLength; j++)
         {
-          if (j == pathIndex && path[j].LogicalNodeType == SchemaElementGroupType.LIST)
+          if (j == pathIndex && path[j].Value.SchemaElementGroupType == SchemaElementGroupType.LIST)
           {
             listIndexes[j]++;
           }
