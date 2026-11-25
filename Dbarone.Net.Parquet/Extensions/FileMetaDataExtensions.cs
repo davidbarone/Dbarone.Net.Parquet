@@ -177,6 +177,30 @@ public static class FileMetaDataExtensions
   #region Node extensions
 
   /// <summary>
+  /// Gets the nested nullability for LIST and MAP types
+  /// </summary>
+  /// <param name="logicalSchemaElement"></param>
+  /// <param name="dl"></param>
+  /// <returns></returns>
+  public static GroupNullability GetGroupNullabilityForRow(this Node<LogicalSchemaElement> node, int dl)
+  {
+    var mdl = node.MaxDefinitionLevel();
+    if (node.Value.DremelKind.HasFlag(DremelKind.IsOptional) && dl <= mdl - node.Value.MaxDefinitionLevelIncr)
+    {
+      // container is null
+      return GroupNullability.NULL;
+    }
+    else if (node.Value.DremelKind.HasFlag(DremelKind.IsEmptyable) && dl <= mdl - 1)
+    {
+      return GroupNullability.EMPTY;
+    }
+    else
+    {
+      return GroupNullability.VALUES;
+    }
+  }
+
+  /// <summary>
   /// Gets the max definition level for a schema element node.
   /// </summary>
   /// <param name="schemaElement"></param>

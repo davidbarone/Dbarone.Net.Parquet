@@ -9,12 +9,14 @@ using Dbarone.Net.Parquet.Thrift;
 /// </summary>
 public class LogicalSchemaElement
 {
+  public string Name { get; set; }
   public DremelKind DremelKind { get; set; }
   public Thrift.Type? PhysicalType { get; set; }
   public LogicalType? LogicalType { get; set; }
   public SchemaElementGroupType SchemaElementGroupType { get; set; }
   public LogicalSchemaElement(string name, DremelKind dremelKind, Thrift.Type? physicalType, LogicalType? logicalType, SchemaElementGroupType schemaElementGroupType)
   {
+    this.Name = name;
     this.DremelKind = dremelKind;
     this.PhysicalType = physicalType;
     this.LogicalType = logicalType;
