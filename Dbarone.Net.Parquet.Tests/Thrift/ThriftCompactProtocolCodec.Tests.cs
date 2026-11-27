@@ -1,6 +1,6 @@
 namespace Dbarone.Net.Parquet.Tests;
 
-using Dbarone.Net.Buffers;
+using Dbarone.Net.Parquet.Buffers;
 using Dbarone.Net.Parquet.Thrift;
 
 public class ThriftCompactProtocolCodecTests

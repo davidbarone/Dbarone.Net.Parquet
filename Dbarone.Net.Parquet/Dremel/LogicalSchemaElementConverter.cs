@@ -51,9 +51,14 @@ using Dbarone.Net.Parquet.Extensions;
 /// - Prune synthetic groups with no meaning 
 /// - Keep only required nodes
 /// </summary>
-public class LogicalSchemaElementConverter : NodeConverter<SchemaElement, LogicalSchemaElement>
+public class LogicalSchemaElementConverter : INodeConverter<SchemaElement, LogicalSchemaElement>
 {
-  public override Node<LogicalSchemaElement> Convert(Node<SchemaElement> node)
+  public static Node<SchemaElement> Convert(Node<LogicalSchemaElement> node)
+  {
+    throw new NotImplementedException();
+  }
+
+  public static Node<LogicalSchemaElement> Convert(Node<SchemaElement> node)
   {
     SchemaElement element = node.Value;
 
@@ -98,7 +103,7 @@ public class LogicalSchemaElementConverter : NodeConverter<SchemaElement, Logica
   /// </summary>
   /// <param name="element">The SchemaElement to convert.</param>
   /// <returns>Returns a LogicalSchemaElement</returns>
-  private Node<LogicalSchemaElement> ConvertList(Node<SchemaElement> node)
+  private static Node<LogicalSchemaElement> ConvertList(Node<SchemaElement> node)
   {
     var listNode = node;
     var repeatedNode = node.Children.First();
@@ -106,9 +111,9 @@ public class LogicalSchemaElementConverter : NodeConverter<SchemaElement, Logica
 
     // Dremel kind is aggregated from L1+L2
     DremelKind kind = DremelKind.None;
-    kind |= repeatedNode.Value.RepetitionType == RepetitionType.OPTIONAL ? DremelKind.IsOptional : DremelKind.None;
-    kind |= DremelKind.IsEmptyable;
-    kind |= DremelKind.IsRepeated;
+    kind |= repeatedNode.Value.RepetitionType == RepetitionType.OPTIONAL ? DremelKind.Optional : DremelKind.None;
+    kind |= DremelKind.Emptyable;
+    kind |= DremelKind.Repeated;
 
     var newList = new LogicalSchemaElement(
       listNode.Value.Name,
@@ -119,25 +124,25 @@ public class LogicalSchemaElementConverter : NodeConverter<SchemaElement, Logica
     );
     var newNode = new Node<LogicalSchemaElement>(newList);
 
-    var newElement = elementNode.ConvertTo(new LogicalSchemaElementConverter());
+    var newElement = elementNode.ConvertTo(LogicalSchemaElementConverter.Convert);
     newNode.AddChild(newElement);
 
     return new Node<LogicalSchemaElement>(newList);
   }
 
-  private Node<LogicalSchemaElement> ConvertMap(Node<SchemaElement> node)
+  private static Node<LogicalSchemaElement> ConvertMap(Node<SchemaElement> node)
   {
     throw new NotImplementedException();
   }
 
-  private Node<LogicalSchemaElement> ConvertStruct(Node<SchemaElement> node)
+  private static Node<LogicalSchemaElement> ConvertStruct(Node<SchemaElement> node)
   {
     // Struct element
     var element = node.Value;
     DremelKind kind = DremelKind.None;
     if (element.RepetitionType == RepetitionType.OPTIONAL)
     {
-      kind |= DremelKind.IsOptional;
+      kind |= DremelKind.Optional;
     }
 
     // convert the current node
@@ -153,23 +158,23 @@ public class LogicalSchemaElementConverter : NodeConverter<SchemaElement, Logica
     // Convert children
     foreach (var child in node.Children)
     {
-      structNode.AddChild(child.ConvertTo<LogicalSchemaElement>(new LogicalSchemaElementConverter()));
+      structNode.AddChild(child.ConvertTo<LogicalSchemaElement>(LogicalSchemaElementConverter.Convert));
     }
 
     return structNode;
   }
 
-  private Node<LogicalSchemaElement> ConvertPrimitive(Node<SchemaElement> node)
+  private static Node<LogicalSchemaElement> ConvertPrimitive(Node<SchemaElement> node)
   {
     var element = node.Value;
     DremelKind kind = DremelKind.None;
     if (element.RepetitionType == RepetitionType.OPTIONAL)
     {
-      kind |= DremelKind.IsOptional;
+      kind |= DremelKind.Optional;
     }
     if (element.RepetitionType == RepetitionType.REPEATED)
     {
-      kind |= DremelKind.IsRepeated;
+      kind |= DremelKind.Repeated;
     }
 
     // convert the current node

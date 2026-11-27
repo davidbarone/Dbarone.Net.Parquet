@@ -1,4 +1,5 @@
 using Dbarone.Net.Parquet.Dremel;
+using Dbarone.Net.Parquet.Common;
 
 public class DremelTests
 {
@@ -8,19 +9,19 @@ public class DremelTests
     {
         // Schema in dremel paper:
         // https://research.google/pubs/pub36632/
-        var root = new SchemaNode("Document", RepetitionKind.Required)
+        var root = new Node<LogicalSchemaElement>(new LogicalSchemaElement("Document", DremelKind.Required))
             .AddChild(
-                new SchemaNode("Links", RepetitionKind.Optional)
-                    .AddChild(new SchemaNode("Backward", RepetitionKind.Repeated))
-                    .AddChild(new SchemaNode("Forward", RepetitionKind.Repeated))
+                new Node<LogicalSchemaElement>(new LogicalSchemaElement("Links", DremelKind.Optional))
+                    .AddChild(new LogicalSchemaElement("Backward", DremelKind.Repeated))
+                    .AddChild(new LogicalSchemaElement("Forward", DremelKind.Repeated))
             )
             .AddChild(
-                new SchemaNode("Name", RepetitionKind.Repeated)
-                    .AddChild(new SchemaNode("Language", RepetitionKind.Repeated)
-                        .AddChild(new SchemaNode("Code", RepetitionKind.Required))
-                        .AddChild(new SchemaNode("Country", RepetitionKind.Optional))
+                new Node<LogicalSchemaElement>(new LogicalSchemaElement("Name", DremelKind.Repeated))
+                    .AddChild(new Node<LogicalSchemaElement>(new LogicalSchemaElement("Language", DremelKind.Repeated))
+                        .AddChild(new LogicalSchemaElement("Code", DremelKind.Required))
+                        .AddChild(new LogicalSchemaElement("Country", DremelKind.Optional))
                     )
-                    .AddChild(new SchemaNode("Url", RepetitionKind.Optional)
+                    .AddChild(new LogicalSchemaElement("Url", DremelKind.Optional)
             )
         );
 
@@ -96,10 +97,10 @@ public class DremelTests
         var dremel = new DremelProcessor();
 
         // Shred
-        var buffers = dremel.Shred(root, records);
+        var buffers = dremel.Shred(root.ConvertTo(LogicalSchemaElementConverter.Convert), records);
 
         // Assemble back
-        var reconstructed = dremel.Assemble(root, buffers);
+        var reconstructed = dremel.Assemble(buffers);
 
     }
 
@@ -107,11 +108,11 @@ public class DremelTests
     public void TestDremel2()
     {
         // Example Dremel-style schema
-        var root = new SchemaNode("doc", RepetitionKind.Required)
+        Node<LogicalSchemaElement> root = ((Node<LogicalSchemaElement>)new LogicalSchemaElement("doc", DremelKind.Required))
             .AddChild(
-                new SchemaNode("links", RepetitionKind.Repeated)
-                    .AddChild(new SchemaNode("url", RepetitionKind.Optional))
-                    .AddChild(new SchemaNode("language", RepetitionKind.Optional))
+                ((Node<LogicalSchemaElement>)new LogicalSchemaElement("links", DremelKind.Repeated))
+                    .AddChild(new LogicalSchemaElement("url", DremelKind.Optional))
+                    .AddChild(new LogicalSchemaElement("language", DremelKind.Optional))
             );
 
         // Example records (JSON-like)
@@ -138,9 +139,9 @@ public class DremelTests
         var dremel = new DremelProcessor();
 
         // Shred
-        var buffers = dremel.Shred(root, records);
+        var buffers = dremel.Shred(root.ConvertTo(LogicalSchemaElementConverter.Convert), records);
 
         // Assemble back
-        var reconstructed = dremel.Assemble(root, buffers);
+        var reconstructed = dremel.Assemble(buffers);
     }
 }

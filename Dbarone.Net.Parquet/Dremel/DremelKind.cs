@@ -12,10 +12,12 @@ public enum DremelKind : Byte
 {
   None = 0,
 
+  Required = 1,
+
   /// <summary>
   /// The node allows a null value. Note that repeated nodes are also optional.
   /// </summary>
-  IsOptional = 1,
+  Optional = 2,
 
   /// <summary>
   /// The node allows an empty state. Only applicable to LIST and MAP nodes.
@@ -25,11 +27,11 @@ public enum DremelKind : Byte
   /// is provided so a single logical node can distinguish between null list
   /// and empty list. 
   /// </summary>
-  IsEmptyable = 2,
+  Emptyable = 4,
 
   /// <summary>
   /// The node allows repeated values. If set, the child node describes the
   /// element type. This setting ONLY applicable to LIST nodes.
   /// </summary>
-  IsRepeated = 4
+  Repeated = 8
 }

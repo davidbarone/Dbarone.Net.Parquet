@@ -8,7 +8,6 @@ using Xunit;
 using System;
 using System.Linq;
 using Dbarone.Net.Csv;
-using Dbarone.Net.Buffers.Document;
 using Dbarone.Net.Parquet.Thrift;
 using Dbarone.Net.Parquet.Serialization;
 using Dbarone.Net.Parquet.Extensions;

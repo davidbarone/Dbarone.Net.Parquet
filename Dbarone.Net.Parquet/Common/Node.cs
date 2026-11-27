@@ -20,6 +20,12 @@ public class Node<T>
   }
 
   /// <summary>
+  /// Implicit operator from type T.
+  /// </summary>
+  /// <param name="value">The node value.</param>
+  public static implicit operator Node<T>(T value) => new Node<T>(value);
+
+  /// <summary>
   /// Returns true if the current node is the root node of a tree.
   /// </summary>
   /// <returns>Returns true if the node is a root node.</returns>
@@ -89,20 +95,22 @@ public class Node<T>
   /// Adds a child to the current node.
   /// </summary>
   /// <param name="child">The child to add.</param>
-  public void AddChild(T child)
+  public Node<T> AddChild(T child)
   {
     var childNode = new Node<T>(child);
     AddChild(childNode);
+    return this;
   }
 
   /// <summary>
   /// Adds a child node to the current node.
   /// </summary>
   /// <param name="child">The child node to add.</param>
-  public void AddChild(Node<T> childNode)
+  public Node<T> AddChild(Node<T> childNode)
   {
     Children.Add(childNode);
     childNode.Parent = this;
+    return this;
   }
 
   /// <summary>
@@ -230,9 +238,9 @@ public class Node<T>
   /// <typeparam name="U">The node type to convert to.</typeparam>
   /// <param name="converter">The convert class to be used.</param>
   /// <returns>Returns a corresponding node of type U.</returns>
-  public Node<U> ConvertTo<U>(NodeConverter<T, U> converter)
+  public Node<U> ConvertTo<U>(Func<Node<T>, Node<U>> converter)
   {
-    return converter.Convert(this);
+    return converter(this);
   }
 
   /// <summary>

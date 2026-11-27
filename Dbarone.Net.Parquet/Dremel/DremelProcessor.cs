@@ -143,7 +143,7 @@ public class DremelProcessor : IDremelProcessor
     var logicalPaths = buffers.Keys
       .ToDictionary(
         k => k,
-        k => k.GetRoot().Filter(n => n.IsAncestorOf(k)).ConvertTo(new LogicalSchemaElementConverter()).ToList()
+        k => k.GetRoot().Filter(n => n.IsAncestorOf(k)).ConvertTo(LogicalSchemaElementConverter.Convert).ToList()
       );
 
     var root = buffers.First().Key.GetRoot();

@@ -14,6 +14,13 @@ public class LogicalSchemaElement
   public Thrift.Type? PhysicalType { get; set; }
   public LogicalType? LogicalType { get; set; }
   public SchemaElementGroupType SchemaElementGroupType { get; set; }
+
+  public LogicalSchemaElement(string name, DremelKind dremelKind)
+  {
+    this.Name = name;
+    this.DremelKind = dremelKind;
+  }
+
   public LogicalSchemaElement(string name, DremelKind dremelKind, Thrift.Type? physicalType, LogicalType? logicalType, SchemaElementGroupType schemaElementGroupType)
   {
     this.Name = name;
@@ -26,10 +33,10 @@ public class LogicalSchemaElement
   /// <summary>
   /// Calculates the max definition level increment for the current node.
   /// </summary>
-  public int MaxDefinitionLevelIncr => (this.DremelKind.HasFlag(DremelKind.IsOptional) ? 1 : 0) + (this.DremelKind.HasFlag(DremelKind.IsEmptyable) ? 1 : 0);
+  public int MaxDefinitionLevelIncr => (this.DremelKind.HasFlag(DremelKind.Optional) ? 1 : 0) + (this.DremelKind.HasFlag(DremelKind.Emptyable) ? 1 : 0);
 
   /// <summary>
   /// Calculates the repetition level incrementfor the current node.
   /// </summary>
-  public int MaxRepetitionLevelIncr => this.DremelKind.HasFlag(DremelKind.IsRepeated) ? 1 : 0;
+  public int MaxRepetitionLevelIncr => this.DremelKind.HasFlag(DremelKind.Repeated) ? 1 : 0;
 }

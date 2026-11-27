@@ -185,12 +185,12 @@ public static class FileMetaDataExtensions
   public static GroupNullability GetGroupNullabilityForRow(this Node<LogicalSchemaElement> node, int dl)
   {
     var mdl = node.MaxDefinitionLevel();
-    if (node.Value.DremelKind.HasFlag(DremelKind.IsOptional) && dl <= mdl - node.Value.MaxDefinitionLevelIncr)
+    if (node.Value.DremelKind.HasFlag(DremelKind.Optional) && dl <= mdl - node.Value.MaxDefinitionLevelIncr)
     {
       // container is null
       return GroupNullability.NULL;
     }
-    else if (node.Value.DremelKind.HasFlag(DremelKind.IsEmptyable) && dl <= mdl - 1)
+    else if (node.Value.DremelKind.HasFlag(DremelKind.Emptyable) && dl <= mdl - 1)
     {
       return GroupNullability.EMPTY;
     }
@@ -336,7 +336,7 @@ public static class FileMetaDataExtensions
   }
   public static Node<LogicalSchemaElement> ToLogicalSchemaElementNode(this Node<SchemaElement> schemaElementNode)
   {
-    return schemaElementNode.ConvertTo(new LogicalSchemaElementConverter());
+    return schemaElementNode.ConvertTo(LogicalSchemaElementConverter.Convert);
   }
 
   #endregion
