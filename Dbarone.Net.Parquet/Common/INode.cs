@@ -129,7 +129,7 @@ public interface INode<T>
   /// </summary>
   /// <param name="predicate">The predicate to select nodes.</param>
   /// <returns>Returns a list of nodes.</returns>
-  List<Node<T>> GetNodes(Func<Node<T>, bool> predicate);
+  List<Node<T>> Find(Func<Node<T>, bool> predicate);
 
   /// <summary>
   /// Gets the leaf nodes from current node using a depth-first traverse.

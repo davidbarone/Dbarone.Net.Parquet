@@ -59,7 +59,7 @@ public class Node<T>
   /// <summary>
   /// Number of edges from the root node to the given node.
   /// </summary>
-  public int depth
+  public int Depth
   {
     get
     {
@@ -158,15 +158,7 @@ public class Node<T>
   /// <returns></returns>
   public List<Node<T>> ToList()
   {
-    NodeTraverseAccumulator<List<Node<T>>> result = new NodeTraverseAccumulator<List<Node<T>>>(false, new List<Node<T>>());
-    Func<Node<T>, IEnumerable<Node<T>>> childSelector = (n) => n.Children;
-    Func<Node<T>, NodeTraverseAccumulator<List<Node<T>>>, NodeTraverseAccumulator<List<Node<T>>>> visitor = (node, acc) =>
-    {
-      acc.Accumulator.Add(node);
-      return acc;
-    };
-    var acc = this.DepthFirstTraverse(result, childSelector, visitor);
-    return acc.Accumulator;
+    return Find((node) => true);
   }
 
   /// <summary>
@@ -296,7 +288,7 @@ public class Node<T>
   /// </summary>
   /// <param name="predicate">The predicate to select nodes.</param>
   /// <returns>Returns a list of nodes.</returns>
-  public List<Node<T>> GetNodes(Func<Node<T>, bool> predicate)
+  public List<Node<T>> Find(Func<Node<T>, bool> predicate)
   {
     NodeTraverseAccumulator<List<Node<T>>> result = new NodeTraverseAccumulator<List<Node<T>>>(false, new List<Node<T>>());
     Func<Node<T>, IEnumerable<Node<T>>> childSelector = (n) => n.Children;
@@ -318,7 +310,7 @@ public class Node<T>
   /// <returns>Returns a list of leaf nodes from the current node.</returns>
   public List<Node<T>> GetLeafNodes()
   {
-    return GetNodes((n) => n.IsLeaf);
+    return Find((n) => n.IsLeaf);
   }
 
   /// <summary>
@@ -344,7 +336,7 @@ public class Node<T>
   /// <param name="valueTransformation"></param>
   public Dictionary<Node<T>, TVal> ToDictionary<TVal>(Func<Node<T>, bool> predicate, Func<Node<T>, TVal> valueTransformation)
   {
-    var list = GetNodes(predicate);
+    var list = Find(predicate);
     Dictionary<Node<T>, TVal> results = new Dictionary<Node<T>, TVal>();
     foreach (var item in list)
     {
